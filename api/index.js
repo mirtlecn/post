@@ -201,12 +201,35 @@ async function handleDELETE(req, res) {
 }
 
 /**
- * Handle GET requests - list all shortlinks or return 404 if not authenticated
+ * Handle GET requests - list all shortlinks if authenticated, 
+ * or redirect to path='/' if not authenticated
  */
 async function handleGET(req, res) {
   const psk = getToken(req);
   if (psk !== process.env.SECRET_KEY) {
-    return jsonResponse(res, { error: 'URL not found' }, 404);
+    // Not authenticated, treat as path='/'
+    const redis = await getRedisClient();
+    const key = LINKS_PREFIX + '/';
+    const storedValue = await redis.get(key);
+    
+    if (!storedValue) {
+      return jsonResponse(res, { error: 'URL not found' }, 404);
+    }
+    
+    const isURL = storedValue.startsWith('url:');
+    const content = storedValue.substring(isURL ? 4 : 5);
+    
+    // Not authenticated
+    if (isURL) {
+      // Redirect to target URL
+      res.writeHead(302, { Location: content });
+      res.end();
+    } else {
+      // Display plain text
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.status(200).send(content);
+    }
+    return;
   }
 
   const redis = await getRedisClient();
