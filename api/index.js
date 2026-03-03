@@ -79,10 +79,10 @@ async function handlePOST(req, res) {
     return jsonResponse(res, { error: '`url` is required' }, 400);
   }
 
-  // Check if content is too large (10KB limit for text)
+  // Check if content is too large (100KB limit for text)
   const contentSize = Buffer.byteLength(inputContent, 'utf8');
-  if (contentSize > 10240) {
-    return jsonResponse(res, { error: 'Content too large (max 10KB)' }, 400);
+  if (contentSize > 102400) {
+    return jsonResponse(res, { error: 'Content too large (max 100KB)' }, 400);
   }
 
   // Try to parse as URL, if fails, treat as plain text
