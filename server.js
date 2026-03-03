@@ -61,27 +61,17 @@ function wrapRes(res) {
 createServer((req, res) => {
   wrapRes(res);
 
-  let url;
-  try {
-    url = new URL(req.url, `http://localhost:${PORT}`);
-  } catch {
-    res.status(400).send('Bad Request\n');
-    return;
-  }
-  const pathname = url.pathname;
-
-  // Inject query params (for /:path handler which reads req.query.path)
-  req.query = Object.fromEntries(url.searchParams);
+  // Strip the leading slash and pass the full raw URL (including query string)
+  // as the Redis key. e.g. "/abc?x=1" → key "abc?x=1"
+  const raw = req.url;
 
   // Route: /  →  api/index.js  (all methods)
-  if (pathname === '/') {
+  if (raw === '/') {
     return handleApiRoot(req, res);
   }
 
   // Route: everything else  →  api/[path].js
-  // Strip the leading slash and pass the rest as-is to the handler.
-  // Let the handler (and Redis) decide if the key exists.
-  req.query.path = pathname.slice(1);
+  req.query = { path: raw.slice(1) };
   return handleApiPath(req, res);
 }).listen(PORT, () => {
   console.log(`\n✅  Server running at http://localhost:${PORT}`);
