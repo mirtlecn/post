@@ -13,7 +13,7 @@
 - ✅ 分享纯文本、代码片段
 - ✅ 保持文本格式和换行
 - ✅ 支持 HTML 渲染（`type: html`）
-- ✅ 最大支持 100KB 文本
+- ✅ 最大支持 500KB 文本（可通过 `MAX_CONTENT_SIZE_KB` 调整）
 
 ### 通用功能
 - ✅ 支持 TTL（过期时间，单位：分钟）
@@ -23,14 +23,16 @@
 
 ## 环境变量
 
-创建 `.env.development.local` 文件（用于本地开发）：
+创建 `.env.local` 文件（用于本地开发，优先级高于 `.env`）：
 
 ```bash
-LINKS_REDIS_URL=redis://default:password@host:port
+LINKS_REDIS_URL=redis://localhost:6379
 SECRET_KEY=your-secret-key-here
+# MAX_CONTENT_SIZE_KB=500   # 可选，默认 500
+# PORT=3000                 # 可选，默认 3000
 ```
 
-部署到 Vercel 时，在项目设置中添加这些环境变量。
+部署到 Vercel 时，在项目设置中添加 `LINKS_REDIS_URL` 和 `SECRET_KEY`。
 
 ## 本地开发
 
@@ -39,12 +41,19 @@ SECRET_KEY=your-secret-key-here
    npm install
    ```
 
-2. 启动开发服务器：
+2. 启动本地 Redis
+
+3. 启动服务器：
    ```bash
-   vercel dev --listen 3001
+   npm start         # 默认监听 http://localhost:3000
    ```
 
-3. 访问 http://localhost:3001
+   也可以使用 Vercel CLI：
+   ```bash
+   vercel dev
+   ```
+
+4. 访问 http://localhost:3000
 
 ### 封装 CLI
 
@@ -65,11 +74,12 @@ Usage:
   post help | -h | --help      Show this help
 
 Options for 'new':
-  -f, --file <path>    Read content from file
-  -s, --slug <path>    Custom slug/path (default: auto-generated)
-  -t, --ttl <minutes>  Expiration time in minutes (default: never)
-  -y, --no-confirm     Skip confirmation prompt
-  -c, --qrcode         Convert input to QR code first
+  -f, --file <path>              Read content from file
+  -s, --slug <path>              Custom slug/path (default: auto-generated)
+  -t, --ttl <minutes>            Expiration time in minutes (default: never)
+  -y, --no-confirm               Skip confirmation prompt
+  -c, --convert html|md2html|url|text|qrcode
+                                 Convert/type the content before uploading
 
 Environment variables:
   POST_HOST    Base endpoint URL (e.g. https://example.com)
@@ -92,122 +102,89 @@ Examples:
 
 ### API
 
-#### 创建短链（自动生成路径）
+#### POST /  创建条目（path 已存在时拒绝）
 ```bash
-curl -X POST http://localhost:3001/ \
-  -H "Authorization: Bearer your-secret-key" \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com"}'
-```
-
-响应示例：
-```json
-{
-  "surl": "http://localhost:3001/a1b2c",
-  "path": "a1b2c",
-  "url": "https://example.com",
-  "expires_in": "never"
-}
-```
-
-#### 创建短链（指定路径）
-```bash
-curl -X POST http://localhost:3001/ \
+curl -X POST http://localhost:3000/ \
   -H "Authorization: Bearer your-secret-key" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","path":"mylink"}'
 ```
 
-#### 创建短链（指定过期时间，单位：分钟）
-```bash
-curl -X POST http://localhost:3001/ \
-  -H "Authorization: Bearer your-secret-key" \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com","path":"temp","ttl":60}'
-```
-
-响应示例：
+响应示例（201 Created）：
 ```json
 {
-  "surl": "http://localhost:3001/temp",
-  "path": "temp",
+  "surl": "http://localhost:3000/mylink",
+  "path": "mylink",
   "url": "https://example.com",
-  "expires_in": "60 minute(s)"
-}
-```
-
-#### 创建文本片段（自动生成路径）
-```bash
-curl -X POST http://localhost:3001/ \
-  -H "Authorization: Bearer your-secret-key" \
-  -H "Content-Type: application/json" \
-  -d '{"url":"Hello World!\nThis is a text snippet."}'
-```
-
-响应示例：
-```json
-{
-  "surl": "http://localhost:3001/x9y2z",
-  "path": "x9y2z",
-  "text": "Hello World!\nTh...",
   "expires_in": "never"
 }
 ```
 
-#### 创建 HTML 片段（指定 type）
-```bash
-curl -X POST http://localhost:3001/ \
-  -H "Authorization: Bearer your-secret-key" \
-  -H "Content-Type: application/json" \
-  -d '{"url":"<h1>Hello</h1><p>World</p>","path":"mypage","type":"html"}'
-```
-
-响应示例：
+path 已存在时返回 409 Conflict：
 ```json
 {
-  "surl": "http://localhost:3001/mypage",
-  "path": "mypage",
-  "text": "<h1>Hello</h1>...",
-  "expires_in": "never"
+  "error": "path \"mylink\" already exists",
+  "hint": "Use PUT to overwrite",
+  "existing": {
+    "surl": "http://localhost:3000/mylink",
+    "type": "url",
+    "content": "https://example.com"
+  }
 }
 ```
 
-> 访问 `http://localhost:3001/mypage` 会直接在浏览器中渲染 HTML。
+#### PUT /  创建或覆写条目（幂等）
+```bash
+curl -X PUT http://localhost:3000/ \
+  -H "Authorization: Bearer your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://new-target.com","path":"mylink"}'
+```
 
-#### 强制指定内容类型（`type` 字段）
+- path 不存在 → 201 Created
+- path 已存在 → 200 OK，并附带 `overwritten` 字段：
 
-`type` 可选值：`url` | `text` | `html`
+```json
+{
+  "surl": "http://localhost:3000/mylink",
+  "path": "mylink",
+  "url": "https://new-target.com",
+  "expires_in": "never",
+  "overwritten": "https://example.com"
+}
+```
 
-| type | 无授权访问行为 |
-|------|--------------|
-| `url` | 302 重定向 |
-| `text` | 返回 `text/plain` |
-| `html` | 返回 `text/html`，浏览器渲染 |
+#### POST / PUT 通用参数
 
-不指定 `type` 时自动识别：能解析为合法 URL 则为 `url`，否则为 `text`。
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `url` | string | ✅ | 目标 URL 或文本内容 |
+| `path` | string | ❌ | 自定义路径，省略时随机生成 5 位 |
+| `type` | string | ❌ | `url` \| `text` \| `html`，省略时自动检测 |
+| `ttl` | number | ❌ | 过期时间（分钟） |
 
 #### 访问内容（无授权）
 ```bash
 # URL → 302 重定向
-curl -L http://localhost:3001/mylink
+curl -L http://localhost:3000/mylink
 
 # text → 纯文本
-curl http://localhost:3001/script
+curl http://localhost:3000/script
 
 # html → 浏览器渲染
-curl http://localhost:3001/mypage
+curl http://localhost:3000/mypage
 ```
 
 #### 查询单条信息（需认证）
 ```bash
-curl http://localhost:3001/mylink \
+curl http://localhost:3000/mylink \
   -H "Authorization: Bearer your-secret-key"
 ```
 
 响应示例：
 ```json
 {
-  "surl": "http://localhost:3001/mylink",
+  "surl": "http://localhost:3000/mylink",
   "path": "mylink",
   "type": "url",
   "content": "https://example.com"
@@ -218,7 +195,7 @@ curl http://localhost:3001/mylink \
 
 #### 列出所有短链和文本
 ```bash
-curl http://localhost:3001/ \
+curl http://localhost:3000/ \
   -H "Authorization: Bearer your-secret-key"
 ```
 
@@ -226,19 +203,19 @@ curl http://localhost:3001/ \
 ```json
 [
   {
-    "surl": "http://localhost:3001/mylink",
+    "surl": "http://localhost:3000/mylink",
     "path": "mylink",
     "type": "url",
     "content": "https://example.com"
   },
   {
-    "surl": "http://localhost:3001/script",
+    "surl": "http://localhost:3000/script",
     "path": "script",
     "type": "text",
     "content": "#!/bin/bash\nech..."
   },
   {
-    "surl": "http://localhost:3001/mypage",
+    "surl": "http://localhost:3000/mypage",
     "path": "mypage",
     "type": "html",
     "content": "<h1>Hello</h1>..."
@@ -248,7 +225,7 @@ curl http://localhost:3001/ \
 
 #### 导出所有完整内容（需认证）
 ```bash
-curl http://localhost:3001/ \
+curl http://localhost:3000/ \
   -H "Authorization: Bearer your-secret-key" \
   -H "X-Export: true"
 ```
@@ -257,7 +234,7 @@ curl http://localhost:3001/ \
 
 #### 删除短链或文本
 ```bash
-curl -X DELETE http://localhost:3001/ \
+curl -X DELETE http://localhost:3000/ \
   -H "Authorization: Bearer your-secret-key" \
   -H "Content-Type: application/json" \
   -d '{"path":"mylink"}'
@@ -309,12 +286,23 @@ curl -X DELETE http://localhost:3001/ \
 
 ```
 ├── api/
-│   ├── redis.js       # Redis 连接管理
-│   ├── index.js       # 主 API（创建、列表、删除）
-│   └── [path].js      # 动态路由（重定向/展示、查询）
-├── vercel.json        # Vercel 配置
-├── package.json       # 项目配置
-└── README.md          # 项目文档
+│   ├── index.js            # 入口：POST 创建、DELETE 删除、GET 列表/根路径
+│   ├── [path].js           # 动态路由：按 path 查找并响应（重定向 / 渲染 / JSON）
+│   ├── redis.js            # Redis 客户端单例
+│   ├── handlers/
+│   │   ├── create.js       # POST 逻辑
+│   │   ├── remove.js       # DELETE 逻辑
+│   │   └── list.js         # GET 列表逻辑
+│   └── utils/
+│       ├── auth.js         # Bearer Token 认证工具
+│       ├── response.js     # HTTP 响应工具（JSON / text / HTML）
+│       └── storage.js      # Redis 存储格式序列化 / 反序列化
+├── cli/
+│   └── post               # 命令行客户端
+├── server.js              # 本地独立 HTTP 服务器（不用于 Vercel）
+├── vercel.json            # Vercel 路由配置
+├── package.json
+└── README.md
 ```
 
 ## 技术栈
@@ -326,11 +314,12 @@ curl -X DELETE http://localhost:3001/ \
 
 ## 注意事项
 
-1. **安全性**：请妥善保管 `SECRET_KEY`，不要泄露
+1. **安全性**：请妥善保管 `SECRET_KEY`，不要泄露或提交到版本控制
 2. **Redis**：确保 Redis 服务可访问，建议使用 Redis Cloud 或 Upstash
 3. **TTL**：过期时间单位为分钟，最小值为 1 分钟
-4. **文本大小**：单个文本最大 100KB
+4. **文本大小**：单个内容默认最大 500KB，可通过 `MAX_CONTENT_SIZE_KB` 调整
 5. **URL 格式**：只有包含 scheme 的才会被识别为 URL 并重定向
+6. **非 ASCII 路径**：支持中文等 Unicode 字符作为 path，`server.js` 会自动 decode percent-encoded URL
 
 ## 常见问题
 
