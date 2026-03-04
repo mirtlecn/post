@@ -15,11 +15,12 @@
 #   post help | -h | --help     Show this help
 #
 # Options for 'new':
-#   -f, --file <path>    Read content from file
-#   -s, --slug <path>    Custom slug/path (default: auto-generated)
-#   -t, --ttl <minutes>  Expiration time in minutes (default: never)
-#   -y, --no-confirm     Skip confirmation prompt
-#   -c, --qrcode         Convert input to QR code first
+#   -f, --file <path>              Read content from file
+#   -s, --slug <path>              Custom slug/path (default: auto-generated)
+#   -t, --ttl <minutes>            Expiration time in minutes (default: never)
+#   -y, --no-confirm               Skip confirmation prompt
+#   -c, --convert html|md2html|url|text|qrcode
+#                                  Convert/type the content before uploading
 #
 # Environment variables:
 #   POST_HOST    Base endpoint URL (e.g. https://example.com)
@@ -81,7 +82,7 @@ print_json() {
 # ── QR code ───────────────────────────────────────────────────
 
 # to_qrcode <text>
-# Converts text to a UTF-8 QR code. Warns if input > 50 chars and skips conversion.
+# Converts text to a UTF-8 QR code. Warns if input > 250 chars and skips conversion.
 to_qrcode() {
   _input="$1"
   _len=$(printf '%s' "$_input" | wc -m | tr -d ' ')
@@ -99,6 +100,72 @@ to_qrcode() {
   printf '%s\n\n%s\n' "$_banner" "$_qr"
 }
 
+# to_md2html <text>
+# Converts Markdown to HTML via GitHub API (requires GITHUB_TOKEN).
+to_md2html() {
+  _md_input="$1"
+  _md_css='https://cdn.jsdelivr.net/gh/sindresorhus/github-markdown-css/github-markdown.css'
+  _md_title=''
+  _md_bg='#0d1117'
+
+  [ -n "$GITHUB_TOKEN" ] || die "GITHUB_TOKEN is not set (required for md2html)"
+
+  _md_body=$(
+    printf '%s' "$_md_input" \
+      | jq -Rs '{"text": ., "mode": "gfm"}' \
+      | curl -sf -X POST "https://api.github.com/markdown" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Content-Type: application/json" \
+          --data-binary @-
+  )
+
+  [ -n "$_md_body" ] || die "empty response from GitHub API"
+
+  cat <<MDEOF
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
+<title>${_md_title}</title>
+<link rel="stylesheet" href="${_md_css}">
+<style>
+  body {
+    box-sizing: border-box;
+    min-width: 200px;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 45px;
+  }
+  .markdown-body .markdown-alert {
+    padding: 0.5rem 1rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    body {
+      background-color: ${_md_bg};
+    }
+  }
+  @media (max-width: 767px) {
+    body {
+      max-width: 100%;
+      padding: 25px;
+    }
+  }
+</style>
+</head>
+<body>
+<article class="markdown-body">
+
+${_md_body}
+
+</article>
+</body>
+</html>
+MDEOF
+}
+
 # ── auth header ───────────────────────────────────────────────
 
 auth_header() {
@@ -109,12 +176,13 @@ auth_header() {
 # API calls
 # ══════════════════════════════════════════════════════════════
 
-# api_post_new <content> <slug> <ttl>
+# api_post_new <content> <slug> <ttl> [type]
 # Uploads content and returns the short URL.
 api_post_new() {
   _content="$1"
   _slug="$2"
   _ttl="$3"
+  _type="$4"
 
   # Build payload via a pipe to avoid arg length limits
   _resp=$(
@@ -123,6 +191,7 @@ api_post_new() {
       printf '%s' "$_content" | jq -Rs .
       [ -n "$_slug" ] && printf ',"path":"%s"' "$_slug"
       [ -n "$_ttl"  ] && printf ',"ttl":%s'   "$_ttl"
+      [ -n "$_type" ] && printf ',"type":"%s"' "$_type"
       printf '}'
     } | curl -s -X POST "${POST_HOST}/" \
       -H "$(auth_header)" \
@@ -177,7 +246,7 @@ cmd_new() {
   _ttl=""
   _confirm=1
   _file=""
-  _qrcode=0
+  _convert=""
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -192,8 +261,13 @@ cmd_new() {
       -f|--file)
         [ -n "$2" ] || die "option $1 requires a file path"
         _file="$2"; shift 2 ;;
-      -c|--qrcode)
-        _qrcode=1; shift ;;
+      -c|--convert)
+        [ -n "$2" ] || die "option $1 requires a value: html|md2html|url|text|qrcode"
+        case "$2" in
+          html|md2html|url|text|qrcode) ;;
+          *) die "invalid convert value '$2'. Must be one of: html, md2html, url, text, qrcode" ;;
+        esac
+        _convert="$2"; shift 2 ;;
       --)
         shift; break ;;
       -*)
@@ -222,16 +296,35 @@ cmd_new() {
 
   [ -n "$_content" ] || die "content is empty"
 
-  # ── qrcode conversion ─────────────────────────────────────
-  if [ "$_qrcode" = "1" ]; then
-    _content=$(to_qrcode "$_content")
-  fi
+  # ── convert ───────────────────────────────────────────────
+  _type=""
+  case "$_convert" in
+    qrcode)
+      _content=$(to_qrcode "$_content")
+      # qrcode result is plain text
+      ;;
+    md2html)
+      _content=$(to_md2html "$_content")
+      _type="html"
+      ;;
+    html)
+      _type="html"
+      ;;
+    url)
+      _type="url"
+      ;;
+    text)
+      _type="text"
+      ;;
+  esac
 
   # ── confirm ───────────────────────────────────────────────
   if [ "$_confirm" = "1" ]; then
     printf '%s\n' "$_label" >&2
-    [ -n "$_slug" ] && printf '[Slug]: %s\n'          "$_slug" >&2
-    [ -n "$_ttl"  ] && printf '[Expire after]: %s min\n' "$_ttl" >&2
+    [ -n "$_slug"    ] && printf '[Slug]: %s\n'             "$_slug"    >&2
+    [ -n "$_ttl"     ] && printf '[Expire after]: %s min\n' "$_ttl"     >&2
+    [ -n "$_convert" ] && printf '[Convert]: %s\n'          "$_convert" >&2
+    [ -n "$_type"    ] && printf '[Type]: %s\n'             "$_type"    >&2
     printf '[Post on]: %s? (y/N) ' "$POST_HOST" >&2
     read -r _answer </dev/tty
     case "$_answer" in
@@ -241,7 +334,7 @@ cmd_new() {
   fi
 
   # ── upload ────────────────────────────────────────────────
-  _url=$(api_post_new "$_content" "$_slug" "$_ttl")
+  _url=$(api_post_new "$_content" "$_slug" "$_ttl" "$_type")
 
   clipboard_copy "$_url" \
     && printf 'Copied to clipboard: %s\n' "$_url" \
@@ -277,11 +370,16 @@ Usage:
   post help | -h | --help      Show this help
 
 Options for 'new':
-  -f, --file <path>    Read content from file
-  -s, --slug <path>    Custom slug/path (default: auto-generated)
-  -t, --ttl <minutes>  Expiration time in minutes (default: never)
-  -y, --no-confirm     Skip confirmation prompt
-  -c, --qrcode         Convert input to QR code first
+  -f, --file <path>              Read content from file
+  -s, --slug <path>              Custom slug/path (default: auto-generated)
+  -t, --ttl <minutes>            Expiration time in minutes (default: never)
+  -y, --no-confirm               Skip confirmation prompt
+  -c, --convert <mode>           Convert/type before uploading:
+                                   html    → set type to html
+                                   md2html → convert Markdown to HTML (type: html)
+                                   url     → set type to url
+                                   text    → set type to text
+                                   qrcode  → convert content to QR code
 
 Environment variables:
   POST_HOST    Base endpoint URL (e.g. https://example.com)
