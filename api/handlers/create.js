@@ -1,14 +1,17 @@
 /**
- * POST /  —  创建短链接或 pastebin 条目
+ * POST /  —  创建条目（path 已存在时返回 409）
+ * PUT  /  —  创建或覆写条目（幂等）
  *
  * 请求体（JSON）：
  *   url      {string}  必填，目标 URL 或文本内容
- *   path     {string}  可选，自定义路径；省略时随机生成 5 位
+ *   path     {string}  可选，自定义路径；省略时随机生成 5 位（PUT 时必填）
  *   type     {string}  可选，'url' | 'text' | 'html'；省略时自动检测
  *   ttl      {number}  可选，过期时间（分钟）
  *
- * 响应（201）：
- *   surl, path, expires_in, url|text, [overwritten], [warning]
+ * 响应：
+ *   POST 201  创建成功
+ *   POST 409  path 已存在
+ *   PUT  200  覆写成功 / 201 新建成功
  */
 
 import { getRedisClient } from '../redis.js';
@@ -27,7 +30,21 @@ function randomPath() {
   return [...Array(5)].map(() => (~~(Math.random() * 36)).toString(36)).join('');
 }
 
+/** POST：不允许覆写已有 path */
 export async function handleCreate(req, res) {
+  return write(req, res, { allowOverwrite: false });
+}
+
+/** PUT：允许覆写已有 path（幂等） */
+export async function handleReplace(req, res) {
+  return write(req, res, { allowOverwrite: true });
+}
+
+/**
+ * 公共写入逻辑
+ * @param {{ allowOverwrite: boolean }} opts
+ */
+async function write(req, res, { allowOverwrite }) {
   let body;
   try {
     body = await parseRequestBody(req);
@@ -65,8 +82,22 @@ export async function handleCreate(req, res) {
   const key = LINKS_PREFIX + path;
   const storedValue = buildStoredValue(contentType, inputContent);
 
-  // 读取已有条目（用于返回 overwritten 字段）
+  // 检查 path 是否已存在
   const existing = await redis.get(key);
+
+  if (existing && !allowOverwrite) {
+    // POST 不允许覆写：返回 409 Conflict
+    const { type: exType, content: exContent } = parseStoredValue(existing);
+    return jsonResponse(res, {
+      error: `path "${path}" already exists`,
+      hint: 'Use PUT to overwrite',
+      existing: {
+        surl: `${getDomain(req)}/${path}`,
+        type: exType,
+        content: previewContent(exType, exContent),
+      },
+    }, 409);
+  }
 
   // 写入，按需设置 TTL
   let ttlWarning = null;
@@ -85,6 +116,8 @@ export async function handleCreate(req, res) {
   }
 
   const domain = getDomain(req);
+  const isOverwrite = !!existing;  // PUT 覆写时为 true
+
   const result = {
     surl: `${domain}/${path}`,
     path,
@@ -94,11 +127,13 @@ export async function handleCreate(req, res) {
       : { text: previewContent(contentType, inputContent) }),
   };
 
-  if (existing) {
+  if (isOverwrite) {
     const { type: exType, content: exContent } = parseStoredValue(existing);
     result.overwritten = previewContent(exType, exContent);
   }
   if (ttlWarning) result.warning = ttlWarning;
 
-  return jsonResponse(res, result, 201);
+  // POST 新建 → 201，PUT 覆写 → 200，PUT 新建 → 201
+  const status = (!allowOverwrite || !isOverwrite) ? 201 : 200;
+  return jsonResponse(res, result, status);
 }

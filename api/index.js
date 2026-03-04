@@ -1,7 +1,8 @@
 /**
- * POST / DELETE / GET /
+ * POST / PUT / DELETE / GET /
  *
- * POST   创建短链接或 pastebin（需认证）
+ * POST   创建条目（需认证，path 已存在时返回 409）
+ * PUT    创建或覆写条目（需认证，幂等）
  * DELETE 删除条目（需认证）
  * GET    已认证：列出所有条目；未认证：查找 path='/' 并响应
  */
@@ -10,7 +11,7 @@ import { getRedisClient } from './redis.js';
 import { jsonResponse, textResponse, htmlResponse } from './utils/response.js';
 import { isAuthenticated } from './utils/auth.js';
 import { LINKS_PREFIX, parseStoredValue } from './utils/storage.js';
-import { handleCreate } from './handlers/create.js';
+import { handleCreate, handleReplace } from './handlers/create.js';
 import { handleDelete } from './handlers/remove.js';
 import { handleList } from './handlers/list.js';
 
@@ -20,6 +21,10 @@ export default async function handler(req, res) {
       case 'POST':
         if (!isAuthenticated(req)) return jsonResponse(res, { error: 'Unauthorized' }, 401);
         return await handleCreate(req, res);
+
+      case 'PUT':
+        if (!isAuthenticated(req)) return jsonResponse(res, { error: 'Unauthorized' }, 401);
+        return await handleReplace(req, res);
 
       case 'DELETE':
         if (!isAuthenticated(req)) return jsonResponse(res, { error: 'Unauthorized' }, 401);
