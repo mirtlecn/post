@@ -1,76 +1,45 @@
-import { getRedisClient } from './redis.js';
-
-const LINKS_PREFIX = 'surl:';
-
-function jsonResponse(res, data, status = 200) {
-  res.setHeader('Content-Type', 'application/json');
-  res.status(status).send(JSON.stringify(data) + '\n');
-}
-
-function textResponse(res, text) {
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.status(200).send(text + '\n');
-}
-
-function htmlResponse(res, html) {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.status(200).send(html);
-}
-
-function getToken(req) {
-  const auth = req.headers['authorization'] || req.headers['Authorization'];
-  if (!auth || !auth.startsWith('Bearer ')) return null;
-  return auth.slice(7);
-}
-
 /**
- * Main handler for path-based requests
+ * GET /:path
+ *
+ * 已认证：返回该条目的 JSON 信息（供管理用）
+ * 未认证：按类型响应——URL 重定向、HTML 渲染、纯文本输出
  */
+
+import { getRedisClient } from './redis.js';
+import { jsonResponse, textResponse, htmlResponse } from './utils/response.js';
+import { isAuthenticated } from './utils/auth.js';
+import { LINKS_PREFIX, parseStoredValue, previewContent, getDomain } from './utils/storage.js';
+
 export default async function handler(req, res) {
   try {
-    const path = req.query.path;
-    
-    if (!path) {
-      return jsonResponse(res, { error: 'URL not found' }, 404);
-    }
+    const { path } = req.query;
+
+    if (!path) return jsonResponse(res, { error: 'URL not found' }, 404);
 
     const redis = await getRedisClient();
-    const key = LINKS_PREFIX + path;
-    const storedValue = await redis.get(key);
-    
-    if (!storedValue) {
-      return jsonResponse(res, { error: 'URL not found' }, 404);
-    }
+    const stored = await redis.get(LINKS_PREFIX + path);
 
-    const isURL = storedValue.startsWith('url:');
-    const storedType = isURL ? 'url' : storedValue.startsWith('html:') ? 'html' : 'text';
-    const content = storedValue.substring(storedType.length + 1);
+    if (!stored) return jsonResponse(res, { error: 'URL not found' }, 404);
 
-    // If authenticated, return JSON info instead of redirecting/displaying
-    const token = getToken(req);
-    if (token === process.env.SECRET_KEY) {
-      const protocol = req.headers['x-forwarded-proto'] || 'http';
-      const host = req.headers['x-forwarded-host'] || req.headers['host'];
-      const domain = `${protocol}://${host}`;
-      
+    const { type, content } = parseStoredValue(stored);
+
+    // 已认证：返回条目详情，不执行重定向/渲染
+    if (isAuthenticated(req)) {
       return jsonResponse(res, {
-        surl: `${domain}/${path}`,
+        surl: `${getDomain(req)}/${path}`,
         path,
-        type: storedType,
-        content: storedType !== 'url' && content.length > 15 ? content.substring(0, 15) + '...' : content,
-      }, 200);
+        type,
+        content: previewContent(type, content),
+      });
     }
 
-    // Not authenticated
-    if (storedType === 'url') {
-      // Redirect to target URL
+    // 未认证：按类型响应
+    if (type === 'url') {
       res.writeHead(302, { Location: content });
       res.end();
-    } else if (storedType === 'html') {
-      // Render as HTML
+    } else if (type === 'html') {
       htmlResponse(res, content);
     } else {
-      // Display plain text
       textResponse(res, content);
     }
   } catch (error) {
