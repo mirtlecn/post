@@ -55,6 +55,8 @@ export function convertMarkdownToHtml(markdown) {
     const cssUrl = 'https://cdn.jsdelivr.net/gh/sindresorhus/github-markdown-css/github-markdown.css';
     // const hlCssLight = 'https://cdn.jsdelivr.net/gh/highlightjs/highlight.js/src/styles/github.css';
     // const hlCssDark = 'https://cdn.jsdelivr.net/gh/highlightjs/highlight.js/src/styles/github-dark.css';
+    // <link rel="stylesheet" href="${hlCssLight}" media="(prefers-color-scheme: light)">
+    // <link rel="stylesheet" href="${hlCssDark}" media="(prefers-color-scheme: dark)">
     const darkBg = '#0d1117';
     const toc_js = 'https://cdn.jsdelivr.net/gh/mirtlecn/public/gfm-toc.js';
     const toc_css = 'https://cdn.jsdelivr.net/gh/mirtlecn/public/gfm-toc.css';
@@ -65,8 +67,6 @@ export function convertMarkdownToHtml(markdown) {
 <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
 <title></title>
 <link rel="stylesheet" href="${cssUrl}">
-<link rel="stylesheet" href="${hlCssLight}" media="(prefers-color-scheme: light)">
-<link rel="stylesheet" href="${hlCssDark}" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="${toc_css}">
 <style>
   body {
