@@ -29,7 +29,25 @@ import { convertMarkdownToHtml, convertToQrCode } from '../utils/converter.js';
 
 /** 随机生成 5 位 base-36 路径 */
 function randomPath() {
-  return [...Array(5)].map(() => (~~(Math.random() * 36)).toString(36)).join('');
+  const chars = '23456789abcdefghjkmnpqrstuvwxyz'; // 去除易混淆字符
+  return [...Array(5)].map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+/**
+ * 校验 path 是否合法
+ * @param {string} path
+ * @returns {{ valid: boolean, error?: string }}
+ */
+function validatePath(path) {
+  // 1. 长度限制：1-99 字符
+  if (path.length < 1 || path.length > 99) {
+    return { valid: false, error: 'path must be 1-99 characters' };
+  }
+  // 2. 字符限制：a-zA-Z0-9 以及 -_./()
+  if (!/^[a-zA-Z0-9_.\-()/]+$/.test(path)) {
+    return { valid: false, error: 'path can only contain: a-z A-Z 0-9 - _ . / ( )' };
+  }
+  return { valid: true };
 }
 
 /** POST：不允许覆写已有 path */
@@ -37,7 +55,7 @@ export async function handleCreate(req, res) {
   return write(req, res, { allowOverwrite: false });
 }
 
-/** PUT：允许覆写已有 path（幂等） */
+/** PUT：允许覆写已有 path */
 export async function handleReplace(req, res) {
   return write(req, res, { allowOverwrite: true });
 }
@@ -59,6 +77,15 @@ async function write(req, res, { allowOverwrite }) {
 
   if (!inputContent) {
     return jsonResponse(res, { error: '`url` is required' }, 400);
+  }
+  // ── path 校验 ──────────────────────────────────────────────
+  if (path) {
+    const validation = validatePath(path);
+    if (!validation.valid) {
+      return jsonResponse(res, { error: validation.error }, 400);
+    }
+  } else {
+    path = randomPath();
   }
 
   if (inputType !== undefined && !['url', 'text', 'html'].includes(inputType)) {
@@ -112,8 +139,6 @@ async function write(req, res, { allowOverwrite }) {
     try { new URL(inputContent); contentType = 'url'; }
     catch { contentType = 'text'; }
   }
-
-  if (!path) path = randomPath();
 
   const redis = await getRedisClient();
   const key = LINKS_PREFIX + path;
