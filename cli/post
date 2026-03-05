@@ -29,6 +29,11 @@
 
 set -e
 
+if [ -z "${POST_HOST}" ] || [ -z "${POST_TOKEN}" ]; then
+  printf 'error: POST_HOST and POST_TOKEN environment variables must be set.\n' >&2
+  exit 1
+fi
+
 POST_HOST="${POST_HOST}"
 POST_TOKEN="${POST_TOKEN}"
 

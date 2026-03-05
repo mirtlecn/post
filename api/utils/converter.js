@@ -4,6 +4,11 @@
  */
 
 import { marked } from 'marked';
+import markedAlert from 'marked-alert';
+import markedFootnote from 'marked-footnote';
+import { gfmHeadingId } from "marked-gfm-heading-id";
+import { markedHighlight } from 'marked-highlight';
+import hljs from 'highlight.js';
 import qrcode from 'qrcode-terminal';
 
 /**
@@ -18,18 +23,26 @@ import qrcode from 'qrcode-terminal';
  */
 export function convertMarkdownToHtml(markdown) {
   try {
-    // 配置 marked 以支持 GitHub Flavored Markdown
-    marked.setOptions({
-      gfm: true,           // GitHub Flavored Markdown
-      breaks: true,        // 单换行转 <br>
-      headerIds: true,     // 为标题生成 id
-      mangle: false        // 不混淆邮箱地址
-    });
+    marked.use(
+      { gfm: true, breaks: true },
+      markedAlert(),
+      markedFootnote(),
+      gfmHeadingId(),
+      markedHighlight({
+      langPrefix: 'hljs language-',
+      highlight(code, lang) {
+        const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+        return hljs.highlight(code, { language }).value;
+      }
+      })
+    );
 
     const htmlBody = marked.parse(markdown);
 
     // 使用 GitHub Markdown CSS 样式
     const cssUrl = 'https://cdn.jsdelivr.net/gh/sindresorhus/github-markdown-css/github-markdown.css';
+    const hlCssLight = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css';
+    const hlCssDark = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css';
     const darkBg = '#0d1117';
 
     return `<!doctype html>
@@ -39,6 +52,8 @@ export function convertMarkdownToHtml(markdown) {
 <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
 <title></title>
 <link rel="stylesheet" href="${cssUrl}">
+<link rel="stylesheet" href="${hlCssLight}" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="${hlCssDark}" media="(prefers-color-scheme: dark)">
 <style>
   body {
     box-sizing: border-box;
