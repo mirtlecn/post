@@ -9,10 +9,18 @@
  *   ttl      {number}  可选，过期时间（分钟）
  *   convert  {string}  可选，'md2html' | 'qrcode' | 'html' | 'url' | 'text'
  *
- * 响应：
- *   POST 201  创建成功
- *   POST 409  path 已存在
- *   PUT  200  覆写成功 / 201 新建成功
+ * 响应字段（统一规范）：
+ *   surl        {string}       本机短链接
+ *   path        {string}       路径
+ *   type        {string}       url | text | html | file
+ *   content     {string}       内容（url/file 完整，text/html 截断预览）
+ *   expires_in  {number|null}  过期分钟数，null 表示永不过期
+ *   overwritten {string}       [PUT 覆写时] 被覆写的旧 content
+ *   warning     {string}       [可选] 警告信息
+ *
+ * POST 201  创建成功
+ * POST 409  path 已存在
+ * PUT  200  覆写成功 / 201 新建成功
  */
 
 import { getRedisClient } from '../redis.js';
@@ -26,6 +34,33 @@ import {
   parseRequestBody,
 } from '../utils/storage.js';
 import { convertMarkdownToHtml, convertToQrCode } from '../utils/converter.js';
+import { isS3Configured, uploadFileToS3 } from '../utils/s3.js';
+import formidable from 'formidable';
+import { extname } from 'path';
+
+const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 10;
+
+async function parseMultipartForm(req) {
+  return new Promise((resolve, reject) => {
+    const form = formidable({
+      maxFileSize: (parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 10) * 1024 * 1024,
+      keepExtensions: true,
+    });
+
+    form.parse(req, (err, fields, files) => {
+      if (err) {
+        if (err.code === 1009 /* formidable FILE_SIZE_EXCEEDED */ || err.message?.includes('maxFileSize')) {
+          return reject(Object.assign(new Error(`File too large (max ${parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 10}MB)`), { status: 413 }));
+        }
+        return reject(err);
+      }
+      const unwrappedFields = Object.fromEntries(
+        Object.entries(fields).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
+      );
+      resolve({ fields: unwrappedFields, files });
+    });
+  });
+}
 
 /** 随机生成 5 位 base-36 路径 */
 function randomPath() {
@@ -65,6 +100,97 @@ export async function handleReplace(req, res) {
  * @param {{ allowOverwrite: boolean }} opts
  */
 async function write(req, res, { allowOverwrite }) {
+  const contentTypeHeader = req.headers['content-type'] || '';
+  const isFileUpload = contentTypeHeader.startsWith('multipart/form-data');
+
+  if (isFileUpload) {
+    if (!isS3Configured()) {
+      return jsonResponse(res, { error: 'S3 service is not configured' }, 501);
+    }
+    return handleFileUpload(req, res, { allowOverwrite });
+  } else {
+    return handleJsonRequest(req, res, { allowOverwrite });
+  }
+}
+
+async function handleFileUpload(req, res, { allowOverwrite }) {
+  let fields, files;
+  try {
+    ({ fields, files } = await parseMultipartForm(req));
+  } catch (error) {
+    return jsonResponse(res, { error: error.message }, 413); // 413 Payload Too Large
+  }
+
+  const file = files.file ? (Array.isArray(files.file) ? files.file[0] : files.file) : null;
+  if (!file) {
+    return jsonResponse(res, { error: '`file` field is required for multipart/form-data' }, 400);
+  }
+
+  let { path, ttl } = fields;
+
+  if (req.method === 'PUT' && !path) {
+    return jsonResponse(res, { error: '`path` is required for PUT requests' }, 400);
+  }
+
+  // 文件扩展名（含点，如 ".jpg"；无扩展名时为空字符串）
+  const fileExt = extname(file.originalFilename || '').toLowerCase();
+
+  if (path) {
+    const validation = validatePath(path);
+    if (!validation.valid) {
+      return jsonResponse(res, { error: validation.error }, 400);
+    }
+    // 用户指定了 path：若扩展名不一致则补上
+    if (fileExt && extname(path).toLowerCase() !== fileExt) {
+      path = path + fileExt;
+    }
+  } else {
+    // 用户未指定 path：随机生成并附上扩展名
+    path = randomPath() + fileExt;
+  }
+
+  try {
+    // getObjectKeyPrefix 接收秒，ttl 字段单位为分钟，需转换
+    const ttlSeconds = ttl ? parseInt(ttl, 10) * 60 : 0;
+    const objectKey = await uploadFileToS3(file, ttlSeconds);
+    const storedValue = buildStoredValue('file', objectKey);
+
+    const redis = await getRedisClient();
+    const key = LINKS_PREFIX + path;
+
+    const existing = await redis.get(key);
+    if (existing && !allowOverwrite) {
+      return jsonResponse(res, { error: `path "${path}" already exists`, hint: 'Use PUT to overwrite' }, 409);
+    }
+
+    let expiresIn = null;
+    if (ttl !== undefined && ttl !== null) {
+      let ttlMinutes = parseInt(ttl);
+      if (isNaN(ttlMinutes) || ttlMinutes < 1) ttlMinutes = 1;
+      await redis.setEx(key, ttlMinutes * 60, storedValue);
+      expiresIn = ttlMinutes;
+    } else {
+      await redis.set(key, storedValue);
+    }
+
+    const result = {
+      surl: `${getDomain(req)}/${path}`,
+      path,
+      type: 'file',
+      content: objectKey,
+      expires_in: expiresIn,
+    };
+
+    const status = (!allowOverwrite || !existing) ? 201 : 200;
+    return jsonResponse(res, result, status);
+
+  } catch (error) {
+    console.error('File upload error:', error);
+    return jsonResponse(res, { error: 'Failed to upload file' }, 500);
+  }
+}
+
+async function handleJsonRequest(req, res, { allowOverwrite }) {
   let body;
   try {
     body = await parseRequestBody(req);
@@ -155,6 +281,7 @@ async function write(req, res, { allowOverwrite }) {
       hint: 'Use PUT to overwrite',
       existing: {
         surl: `${getDomain(req)}/${path}`,
+        path,
         type: exType,
         content: previewContent(exType, exContent),
       },
@@ -163,7 +290,7 @@ async function write(req, res, { allowOverwrite }) {
 
   // 写入，按需设置 TTL
   let ttlWarning = null;
-  let expiresIn = 'never';
+  let expiresIn = null;
 
   if (ttl !== undefined && ttl !== null) {
     let ttlMinutes = parseInt(ttl);
@@ -172,21 +299,20 @@ async function write(req, res, { allowOverwrite }) {
       ttlWarning = 'invalid ttl, fallback to 1 minute';
     }
     await redis.setEx(key, ttlMinutes * 60, storedValue);
-    expiresIn = `${ttlMinutes} minute(s)`;
+    expiresIn = ttlMinutes;
   } else {
     await redis.set(key, storedValue);
   }
 
   const domain = getDomain(req);
-  const isOverwrite = !!existing;  // PUT 覆写时为 true
+  const isOverwrite = !!existing;
 
   const result = {
     surl: `${domain}/${path}`,
     path,
+    type: contentType,
+    content: previewContent(contentType, inputContent),
     expires_in: expiresIn,
-    ...(contentType === 'url'
-      ? { url: inputContent }
-      : { text: previewContent(contentType, inputContent) }),
   };
 
   if (isOverwrite) {

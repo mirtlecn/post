@@ -136,6 +136,39 @@ api_rm() {
     "${POST_HOST}/"
 }
 
+# api_post_file <filepath> <slug> <ttl> <method>
+# Uploads a binary file via multipart/form-data.
+api_post_file() {
+  _fp="$1"
+  _slug="$2"
+  _ttl="$3"
+  _method="${4:-POST}"
+
+  _args="-s -X $_method ${POST_HOST}/ -H $(auth_header)"
+
+  _resp=$(
+    curl -s -X "$_method" "${POST_HOST}/" \
+      -H "$(auth_header)" \
+      -F "file=@${_fp}" \
+      ${_slug:+-F "path=${_slug}"} \
+      ${_ttl:+-F "ttl=${_ttl}"}
+  )
+
+  if printf '%s' "$_resp" | jq -e '.error' >/dev/null 2>&1; then
+    _errmsg=$(printf '%s' "$_resp" | jq -r '.error')
+    _hint=$(printf '%s' "$_resp" | jq -r '.hint // empty')
+    if [ -n "$_hint" ]; then
+      die "API error: $_errmsg — $_hint (add -u to overwrite)"
+    fi
+    die "API error: $_errmsg"
+  fi
+
+  _surl=$(printf '%s' "$_resp" | jq -r '.surl // empty')
+  [ -n "$_surl" ] || die "no URL returned from API; response: $_resp"
+
+  printf '%s\n' "$_surl"
+}
+
 # ══════════════════════════════════════════════════════════════
 # Commands
 # ══════════════════════════════════════════════════════════════
@@ -165,10 +198,10 @@ cmd_new() {
         [ -n "$2" ] || die "option $1 requires a file path"
         _file="$2"; shift 2 ;;
       -c|--convert)
-        [ -n "$2" ] || die "option $1 requires a value: html|md2html|url|text|qrcode"
+        [ -n "$2" ] || die "option $1 requires a value: html|md2html|url|text|qrcode|file"
         case "$2" in
-          html|md2html|url|text|qrcode) ;;
-          *) die "invalid convert value '$2'. Must be one of: html, md2html, url, text, qrcode" ;;
+          html|md2html|url|text|qrcode|file) ;;
+          *) die "invalid convert value '$2'. Must be one of: html, md2html, url, text, qrcode, file" ;;
         esac
         _convert="$2"; shift 2 ;;
       --)
@@ -181,7 +214,13 @@ cmd_new() {
   done
 
   # ── resolve content & label ───────────────────────────────
-  if [ -n "$_file" ]; then
+  # file 模式：必须指定 -f，不接受文本/剪贴板/stdin
+  if [ "$_convert" = "file" ]; then
+    [ -n "$_file" ] || die "-c file requires -f <path>"
+    [ -f "$_file" ] || die "file not found: $_file"
+    _label="[File upload]: $_file"
+    _content="$_file"   # 仅用于 confirm 显示，实际上传由 api_post_file 处理
+  elif [ -n "$_file" ]; then
     [ -f "$_file" ] || die "file not found: $_file"
     _content=$(cat "$_file")
     _label="[File]: $_file"
@@ -198,6 +237,15 @@ cmd_new() {
   fi
 
   [ -n "$_content" ] || die "content is empty"
+
+  # ── file 上传：走 multipart/form-data，不走 JSON ───────────
+  if [ "$_convert" = "file" ]; then
+    _url=$(api_post_file "$_file" "$_slug" "$_ttl" "$_method")
+    clipboard_copy "$_url" \
+      && printf 'Copied to clipboard: %s\n' "$_url" \
+      || printf 'URL: %s\n' "$_url"
+    return
+  fi
 
   # ── convert (服务端处理，客户端仅设置类型) ──────────────────
   _type=""
@@ -274,6 +322,7 @@ Options for 'new':
                                    url     → set type to url
                                    text    → set type to text
                                    qrcode  → convert content to QR code
+                                   file    → upload binary file (requires -f)
 
 Environment variables:
   POST_HOST    Base endpoint URL (e.g. https://example.com)

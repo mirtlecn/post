@@ -4,8 +4,10 @@
  * 请求体（JSON）：
  *   path  {string}  必填，要删除的路径
  *
- * 响应（200）：
- *   deleted, url|text
+ * 响应字段（统一规范）：
+ *   deleted  {string}  被删除的路径
+ *   type     {string}  url | text | html | file
+ *   content  {string}  被删除的内容预览
  */
 
 import { getRedisClient } from '../redis.js';
@@ -16,6 +18,7 @@ import {
   previewContent,
   parseRequestBody,
 } from '../utils/storage.js';
+import { isS3Configured, deleteFileFromS3 } from '../utils/s3.js';
 
 export async function handleDelete(req, res) {
   let body;
@@ -38,14 +41,27 @@ export async function handleDelete(req, res) {
     return jsonResponse(res, { error: `path "${path}" not found` }, 404);
   }
 
+  const { type, content } = parseStoredValue(existing);
+
   await redis.del(key);
 
-  const { type, content } = parseStoredValue(existing);
+  if (type === 'file') {
+    if (isS3Configured()) {
+      try {
+        await deleteFileFromS3(content);
+      } catch (error) {
+        console.error(`Failed to delete ${content} from S3`, error);
+        // 不阻断响应，Redis 已删除即视为成功
+      }
+    } else {
+      console.warn('S3 not configured, skipping deletion of', content);
+    }
+  }
+
   const result = {
     deleted: path,
-    ...(type === 'url'
-      ? { url: content }
-      : { text: previewContent(type, content) }),
+    type,
+    content: previewContent(type, content),
   };
 
   return jsonResponse(res, result, 200);

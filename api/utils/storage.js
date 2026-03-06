@@ -5,8 +5,9 @@
  *   - url:https://example.com
  *   - text:hello world
  *   - html:<h1>hi</h1>
+ *   - file:post/default/abc123.png
  *
- * 支持的类型：'url' | 'text' | 'html'
+ * 支持的类型：'url' | 'text' | 'html' | 'file'
  */
 
 /** Redis key 前缀，所有短链接均以此开头 */
@@ -33,6 +34,7 @@ export function buildStoredValue(type, content) {
 export function parseStoredValue(stored) {
   if (stored.startsWith('url:'))  return { type: 'url',  content: stored.slice(4) };
   if (stored.startsWith('html:')) return { type: 'html', content: stored.slice(5) };
+  if (stored.startsWith('file:')) return { type: 'file', content: stored.slice(5) };
   // 兜底：无前缀或 'text:' 前缀均视为纯文本
   return { type: 'text', content: stored.startsWith('text:') ? stored.slice(5) : stored };
 }
@@ -45,7 +47,7 @@ export function parseStoredValue(stored) {
  * @returns {string}
  */
 export function previewContent(type, content) {
-  if (type === 'url') return content;
+  if (type === 'url' || type === 'file') return content;
   return content.length > PREVIEW_LENGTH
     ? content.substring(0, PREVIEW_LENGTH) + '...'
     : content;

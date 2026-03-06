@@ -1,5 +1,5 @@
 /**
- * Standalone HTTP server (zero dependencies, uses Node.js built-in `http`)
+ * Post — standalone HTTP server for local development
  * Run with: npm start
  * This file is NOT used by Vercel (which uses vercel.json + api/ directory instead).
  */

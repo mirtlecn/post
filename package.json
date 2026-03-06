@@ -1,7 +1,7 @@
 {
-  "name": "vercel-surl",
+  "name": "post",
   "version": "1.0.0",
-  "description": "A simple Vercel project",
+  "description": "A lightweight link shortener, pastebin and file sharing service",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -9,9 +9,11 @@
     "vercel": "vercel dev"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Mirtle",
+  "license": "MIT",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1003.0",
+    "formidable": "^3.5.4",
     "highlight.js": "^11.11.1",
     "marked": "^17.0.3",
     "marked-alert": "^2.1.2",

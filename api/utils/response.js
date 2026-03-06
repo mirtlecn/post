@@ -22,3 +22,27 @@ export function htmlResponse(res, html, cache = true) {
   if (cache) res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
   res.status(200).send(html);
 }
+
+/** 发送重定向响应 */
+export function redirectResponse(res, url, cache = true) {
+  const headers = { Location: url };
+  if (cache) {
+    headers['Cache-Control'] = 'public, max-age=86400, s-maxage=86400';
+  }
+  res.writeHead(302, headers);
+  res.end();
+}
+
+/**
+ * 将 S3 对象流式代理给用户，地址栏 URL 保持不变。
+ * 适合图片等小文件（≤10MB）。
+ * @param {object} s3Object - { body: Readable, contentType, contentLength }
+ */
+export function proxyStreamResponse(res, s3Object) {
+  const { body, contentType, contentLength } = s3Object;
+  res.statusCode = 200;
+  if (contentType) res.setHeader('Content-Type', contentType);
+  if (contentLength) res.setHeader('Content-Length', contentLength);
+  res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+  body.pipe(res);
+}

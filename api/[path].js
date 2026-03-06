@@ -6,9 +6,10 @@
  */
 
 import { getRedisClient } from './redis.js';
-import { jsonResponse, textResponse, htmlResponse } from './utils/response.js';
+import { jsonResponse, textResponse, htmlResponse, redirectResponse, proxyStreamResponse } from './utils/response.js';
 import { isAuthenticated } from './utils/auth.js';
 import { LINKS_PREFIX, parseStoredValue, previewContent, getDomain } from './utils/storage.js';
+import { getS3Object, isS3Configured } from './utils/s3.js';
 
 export default async function handler(req, res) {
   try {
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
 
     const { type, content } = parseStoredValue(stored);
 
-    // 已认证：返回条目详情，不执行重定向/渲染
+    // 已认证：返回条目详情，不执行重定向/渲染/代理
     if (isAuthenticated(req)) {
       return jsonResponse(res, {
         surl: `${getDomain(req)}/${path}`,
@@ -33,13 +34,23 @@ export default async function handler(req, res) {
       });
     }
 
+    // 未认证 file 类型：流式代理，地址栏 URL 保持不变
+    if (type === 'file') {
+      if (!isS3Configured()) {
+        return jsonResponse(res, { error: 'S3 service is not configured' }, 501);
+      }
+      try {
+        const s3Object = await getS3Object(content);
+        return proxyStreamResponse(res, s3Object);
+      } catch (error) {
+        console.error('Failed to serve file', error);
+        return jsonResponse(res, { error: 'Failed to retrieve file' }, 500);
+      }
+    }
+
     // 未认证：按类型响应
     if (type === 'url') {
-      res.writeHead(302, {
-        Location: content,
-        'Cache-Control': 'public, max-age=86400, s-maxage=86400',
-      });
-      res.end();
+      redirectResponse(res, content);
     } else if (type === 'html') {
       htmlResponse(res, content);
     } else {
