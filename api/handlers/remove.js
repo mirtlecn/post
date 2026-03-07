@@ -11,7 +11,7 @@
  */
 
 import { getRedisClient } from '../redis.js';
-import { jsonResponse } from '../utils/response.js';
+import { jsonResponse, errorResponse } from '../utils/response.js';
 import {
   LINKS_PREFIX,
   parseStoredValue,
@@ -19,18 +19,19 @@ import {
   parseRequestBody,
 } from '../utils/storage.js';
 import { isS3Configured, deleteFileFromS3 } from '../utils/s3.js';
+import { clearFileCache } from '../utils/file-cache.js';
 
 export async function handleDelete(req, res) {
   let body;
   try {
     body = await parseRequestBody(req);
   } catch {
-    return jsonResponse(res, { error: 'Invalid JSON body' }, 400);
+    return errorResponse(res, { code: 'invalid_request', message: 'Invalid JSON body' }, 400);
   }
 
   const { path } = body;
   if (!path) {
-    return jsonResponse(res, { error: '`path` is required' }, 400);
+    return errorResponse(res, { code: 'invalid_request', message: '`path` is required' }, 400);
   }
 
   const redis = await getRedisClient();
@@ -38,12 +39,17 @@ export async function handleDelete(req, res) {
 
   const existing = await redis.get(key);
   if (!existing) {
-    return jsonResponse(res, { error: `path "${path}" not found` }, 404);
+    return errorResponse(res, { code: 'not_found', message: `path "${path}" not found` }, 404);
   }
 
   const { type, content } = parseStoredValue(existing);
 
   await redis.del(key);
+  try {
+    await clearFileCache(redis, path);
+  } catch (error) {
+    console.warn('Failed to clear file cache:', error);
+  }
 
   if (type === 'file') {
     if (isS3Configured()) {

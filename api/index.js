@@ -8,27 +8,27 @@
  */
 
 import { getRedisClient } from './redis.js';
-import { jsonResponse, textResponse, htmlResponse, redirectResponse, proxyStreamResponse } from './utils/response.js';
+import { jsonResponse, errorResponse } from './utils/response.js';
 import { isAuthenticated } from './utils/auth.js';
 import { LINKS_PREFIX, parseStoredValue } from './utils/storage.js';
 import { handleCreate, handleReplace } from './handlers/create.js';
 import { handleDelete } from './handlers/remove.js';
 import { handleList } from './handlers/list.js';
-import { getS3Object, isS3Configured } from './utils/s3.js';
+import { respondByType } from './utils/serve.js';
 
 export default async function handler(req, res) {
   try {
     switch (req.method) {
       case 'POST':
-        if (!isAuthenticated(req)) return jsonResponse(res, { error: 'Unauthorized' }, 401);
+        if (!isAuthenticated(req)) return errorResponse(res, { code: 'unauthorized', message: 'Unauthorized' }, 401);
         return await handleCreate(req, res);
 
       case 'PUT':
-        if (!isAuthenticated(req)) return jsonResponse(res, { error: 'Unauthorized' }, 401);
+        if (!isAuthenticated(req)) return errorResponse(res, { code: 'unauthorized', message: 'Unauthorized' }, 401);
         return await handleReplace(req, res);
 
       case 'DELETE':
-        if (!isAuthenticated(req)) return jsonResponse(res, { error: 'Unauthorized' }, 401);
+        if (!isAuthenticated(req)) return errorResponse(res, { code: 'unauthorized', message: 'Unauthorized' }, 401);
         return await handleDelete(req, res);
 
       case 'GET':
@@ -37,11 +37,11 @@ export default async function handler(req, res) {
         return await handleRootPath(req, res);
 
       default:
-        return jsonResponse(res, { error: 'Method not allowed' }, 405);
+        return errorResponse(res, { code: 'method_not_allowed', message: 'Method not allowed' }, 405);
     }
   } catch (error) {
     console.error('Error:', error);
-    return jsonResponse(res, { error: 'Internal server error' }, 500);
+    return errorResponse(res, { code: 'internal', message: 'Internal server error' }, 500);
   }
 }
 
@@ -53,26 +53,8 @@ async function handleRootPath(req, res) {
   const redis = await getRedisClient();
   const stored = await redis.get(LINKS_PREFIX + '/');
 
-  if (!stored) return jsonResponse(res, { error: 'URL not found' }, 404);
+  if (!stored) return errorResponse(res, { code: 'not_found', message: 'URL not found' }, 404);
 
   const { type, content } = parseStoredValue(stored);
-
-  if (type === 'url') {
-    redirectResponse(res, content);
-  } else if (type === 'html') {
-    htmlResponse(res, content);
-  } else if (type === 'file') {
-    if (!isS3Configured()) {
-      return jsonResponse(res, { error: 'S3 service is not configured' }, 501);
-    }
-    try {
-      const s3Object = await getS3Object(content);
-      return proxyStreamResponse(res, s3Object);
-    } catch (error) {
-      console.error('Failed to serve file', error);
-      return jsonResponse(res, { error: 'Failed to retrieve file' }, 500);
-    }
-  } else {
-    textResponse(res, content);
-  }
+  return await respondByType(req, res, { type, content, path: '/', redis });
 }

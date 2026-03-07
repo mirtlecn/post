@@ -24,7 +24,7 @@
  */
 
 import { getRedisClient } from '../redis.js';
-import { jsonResponse } from '../utils/response.js';
+import { jsonResponse, errorResponse } from '../utils/response.js';
 import {
   LINKS_PREFIX,
   buildStoredValue,
@@ -33,6 +33,7 @@ import {
   getDomain,
   parseRequestBody,
 } from '../utils/storage.js';
+import { clearFileCache } from '../utils/file-cache.js';
 import { convertMarkdownToHtml, convertToQrCode } from '../utils/converter.js';
 import { isS3Configured, uploadFileToS3 } from '../utils/s3.js';
 import formidable from 'formidable';
@@ -105,7 +106,7 @@ async function write(req, res, { allowOverwrite }) {
 
   if (isFileUpload) {
     if (!isS3Configured()) {
-      return jsonResponse(res, { error: 'S3 service is not configured' }, 501);
+      return errorResponse(res, { code: 's3_not_configured', message: 'S3 service is not configured' }, 501);
     }
     return handleFileUpload(req, res, { allowOverwrite });
   } else {
@@ -118,18 +119,18 @@ async function handleFileUpload(req, res, { allowOverwrite }) {
   try {
     ({ fields, files } = await parseMultipartForm(req));
   } catch (error) {
-    return jsonResponse(res, { error: error.message }, 413); // 413 Payload Too Large
+    return errorResponse(res, { code: error.code || 'invalid_request', message: error.message }, error.status || 400);
   }
 
   const file = files.file ? (Array.isArray(files.file) ? files.file[0] : files.file) : null;
   if (!file) {
-    return jsonResponse(res, { error: '`file` field is required for multipart/form-data' }, 400);
+    return errorResponse(res, { code: 'invalid_request', message: '`file` field is required for multipart/form-data' }, 400);
   }
 
   let { path, ttl } = fields;
 
   if (req.method === 'PUT' && !path) {
-    return jsonResponse(res, { error: '`path` is required for PUT requests' }, 400);
+    return errorResponse(res, { code: 'invalid_request', message: '`path` is required for PUT requests' }, 400);
   }
 
   // 文件扩展名（含点，如 ".jpg"；无扩展名时为空字符串）
@@ -138,7 +139,7 @@ async function handleFileUpload(req, res, { allowOverwrite }) {
   if (path) {
     const validation = validatePath(path);
     if (!validation.valid) {
-      return jsonResponse(res, { error: validation.error }, 400);
+      return errorResponse(res, { code: 'invalid_request', message: validation.error }, 400);
     }
     // 用户指定了 path：若扩展名不一致则补上
     if (fileExt && extname(path).toLowerCase() !== fileExt) {
@@ -160,7 +161,14 @@ async function handleFileUpload(req, res, { allowOverwrite }) {
 
     const existing = await redis.get(key);
     if (existing && !allowOverwrite) {
-      return jsonResponse(res, { error: `path "${path}" already exists`, hint: 'Use PUT to overwrite' }, 409);
+      return errorResponse(res, { code: 'conflict', message: `path "${path}" already exists`, hint: 'Use PUT to overwrite' }, 409);
+    }
+    if (existing && allowOverwrite) {
+      try {
+        await clearFileCache(redis, path);
+      } catch (error) {
+        console.warn('Failed to clear file cache:', error);
+      }
     }
 
     let expiresIn = null;
@@ -186,7 +194,7 @@ async function handleFileUpload(req, res, { allowOverwrite }) {
 
   } catch (error) {
     console.error('File upload error:', error);
-    return jsonResponse(res, { error: 'Failed to upload file' }, 500);
+    return errorResponse(res, { code: 'internal', message: 'Failed to upload file' }, 500);
   }
 }
 
@@ -195,27 +203,27 @@ async function handleJsonRequest(req, res, { allowOverwrite }) {
   try {
     body = await parseRequestBody(req);
   } catch {
-    return jsonResponse(res, { error: 'Invalid JSON body' }, 400);
+    return errorResponse(res, { code: 'invalid_request', message: 'Invalid JSON body' }, 400);
   }
 
   let { url: inputContent, ttl, type: inputType, convert } = body;
   let { path } = body;
 
   if (!inputContent) {
-    return jsonResponse(res, { error: '`url` is required' }, 400);
+    return errorResponse(res, { code: 'invalid_request', message: '`url` is required' }, 400);
   }
   // ── path 校验 ──────────────────────────────────────────────
   if (path) {
     const validation = validatePath(path);
     if (!validation.valid) {
-      return jsonResponse(res, { error: validation.error }, 400);
+      return errorResponse(res, { code: 'invalid_request', message: validation.error }, 400);
     }
   } else {
     path = randomPath();
   }
 
   if (inputType !== undefined && !['url', 'text', 'html'].includes(inputType)) {
-    return jsonResponse(res, { error: '`type` must be one of: url, text, html' }, 400);
+    return errorResponse(res, { code: 'invalid_request', message: '`type` must be one of: url, text, html' }, 400);
   }
 
   // ── 转换处理 ──────────────────────────────────────────────
@@ -226,7 +234,7 @@ async function handleJsonRequest(req, res, { allowOverwrite }) {
           inputContent = convertMarkdownToHtml(inputContent);
           inputType = 'html';  // 自动设置类型为 html
         } catch (error) {
-          return jsonResponse(res, { error: error.message }, 400);
+          return errorResponse(res, { code: 'invalid_request', message: error.message }, 400);
         }
         break;
 
@@ -235,7 +243,7 @@ async function handleJsonRequest(req, res, { allowOverwrite }) {
           inputContent = await convertToQrCode(inputContent);
           // QR 码结果是纯文本，保持原 type 或默认为 text
         } catch (error) {
-          return jsonResponse(res, { error: error.message }, 400);
+          return errorResponse(res, { code: 'invalid_request', message: error.message }, 400);
         }
         break;
 
@@ -247,8 +255,9 @@ async function handleJsonRequest(req, res, { allowOverwrite }) {
         break;
 
       default:
-        return jsonResponse(res, {
-          error: `Invalid convert value: ${convert}. Must be one of: md2html, qrcode, html, url, text`
+        return errorResponse(res, {
+          code: 'invalid_request',
+          message: `Invalid convert value: ${convert}. Must be one of: md2html, qrcode, html, url, text`,
         }, 400);
     }
   }
@@ -256,7 +265,7 @@ async function handleJsonRequest(req, res, { allowOverwrite }) {
   // 内容大小限制
   const maxBytes = (parseInt(process.env.MAX_CONTENT_SIZE_KB, 10) || 500) * 1024;
   if (Buffer.byteLength(inputContent, 'utf8') > maxBytes) {
-    return jsonResponse(res, { error: `Content too large (max ${maxBytes / 1024}KB)` }, 400);
+    return errorResponse(res, { code: 'payload_too_large', message: `Content too large (max ${maxBytes / 1024}KB)` }, 413);
   }
 
   // 自动检测类型：未指定时尝试解析为 URL，失败则视为 text
@@ -276,16 +285,26 @@ async function handleJsonRequest(req, res, { allowOverwrite }) {
   if (existing && !allowOverwrite) {
     // POST 不允许覆写：返回 409 Conflict
     const { type: exType, content: exContent } = parseStoredValue(existing);
-    return jsonResponse(res, {
-      error: `path "${path}" already exists`,
+    return errorResponse(res, {
+      code: 'conflict',
+      message: `path "${path}" already exists`,
       hint: 'Use PUT to overwrite',
-      existing: {
-        surl: `${getDomain(req)}/${path}`,
-        path,
-        type: exType,
-        content: previewContent(exType, exContent),
+      details: {
+        existing: {
+          surl: `${getDomain(req)}/${path}`,
+          path,
+          type: exType,
+          content: previewContent(exType, exContent),
+        },
       },
     }, 409);
+  }
+  if (existing && allowOverwrite) {
+    try {
+      await clearFileCache(redis, path);
+    } catch (error) {
+      console.warn('Failed to clear file cache:', error);
+    }
   }
 
   // 写入，按需设置 TTL
