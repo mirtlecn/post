@@ -5,11 +5,11 @@
  * 未认证：按类型响应——URL 重定向、HTML 渲染、纯文本输出
  */
 
-import { getRedisClient } from './redis.js';
-import { jsonResponse, errorResponse } from './utils/response.js';
-import { isAuthenticated } from './utils/auth.js';
-import { LINKS_PREFIX, parseStoredValue, previewContent, getDomain } from './utils/storage.js';
-import { respondByType } from './utils/serve.js';
+import { getRedisClient } from '../lib/redis.js';
+import { jsonResponse, errorResponse } from '../lib/utils/response.js';
+import { isAuthenticated } from '../lib/utils/auth.js';
+import { LINKS_PREFIX, parseStoredValue, previewContent, getDomain } from '../lib/utils/storage.js';
+import { respondByType } from '../lib/utils/serve.js';
 
 export default async function handler(req, res) {
   try {

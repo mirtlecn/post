@@ -7,14 +7,14 @@
  * GET    已认证：列出所有条目；未认证：查找 path='/' 并响应
  */
 
-import { getRedisClient } from './redis.js';
-import { jsonResponse, errorResponse } from './utils/response.js';
-import { isAuthenticated } from './utils/auth.js';
-import { LINKS_PREFIX, parseStoredValue } from './utils/storage.js';
-import { handleCreate, handleReplace } from './handlers/create.js';
-import { handleDelete } from './handlers/remove.js';
-import { handleList } from './handlers/list.js';
-import { respondByType } from './utils/serve.js';
+import { getRedisClient } from '../lib/redis.js';
+import { jsonResponse, errorResponse } from '../lib/utils/response.js';
+import { isAuthenticated } from '../lib/utils/auth.js';
+import { LINKS_PREFIX, parseStoredValue } from '../lib/utils/storage.js';
+import { handleCreate, handleReplace } from '../lib/handlers/create.js';
+import { handleDelete } from '../lib/handlers/remove.js';
+import { handleList } from '../lib/handlers/list.js';
+import { respondByType } from '../lib/utils/serve.js';
 
 export default async function handler(req, res) {
   try {
