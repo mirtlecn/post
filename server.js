@@ -45,9 +45,10 @@ if (missing.length > 0) {
 }
 
 // Dynamic imports so api modules read process.env AFTER loadEnv()
-const [{ default: handleApiRoot }, { default: handleApiPath }] = await Promise.all([
+const [{ default: handleApiRoot }, { default: handleApiPath }, { default: handleAdminApi }] = await Promise.all([
   import('./api/index.js'),
   import('./api/[path].js'),
+  import('./api/admin.js'),
 ]);
 
 const PORT = process.env.PORT || 3000;
@@ -130,6 +131,10 @@ createServer(async (req, res) => {
       res.statusCode = 500;
       res.end('Internal server error');
       return;
+  }
+
+  if (req.url === '/api/admin' || req.url.startsWith('/api/admin?')) {
+    return handleAdminApi(req, res);
   }
 
   // Route: /  →  api/index.js  (all methods)

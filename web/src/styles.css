@@ -11,16 +11,17 @@
 body, #root { margin: 0; min-height: 100vh; }
 .app-shell { min-height: 100vh; background: radial-gradient(circle at top left, rgba(34,211,238,.12), transparent 28%), radial-gradient(circle at bottom right, rgba(250,204,21,.12), transparent 22%), linear-gradient(180deg, #fffdf7 0%, #f8fafc 100%); color: oklch(24% 0.03 255); }
 .panel-box { border: 1px solid color-mix(in oklab, currentColor 12%, transparent); border-radius: 2rem; background: rgb(255 255 255 / .8); padding: 1.25rem; box-shadow: 0 25px 60px rgba(15,23,42,.06); backdrop-filter: blur(10px); }
-.composer-panel { border-color: color-mix(in oklab, var(--color-info) 22%, rgba(15,23,42,.08)); box-shadow: 0 28px 70px rgba(15,23,42,.08), 0 0 0 1px rgba(56,189,248,.05), 0 0 48px rgba(56,189,248,.10); }
+.composer-panel { border-color: rgba(15,23,42,.12); box-shadow: 0 24px 56px rgba(15,23,42,.09), 0 10px 24px rgba(15,23,42,.06); }
 .icon-button { border-width: 1.5px; }
 .toolbar-grid { display: grid; gap: .85rem; align-items: stretch; }
 .field-shell { display: flex; align-items: center; gap: .5rem; height: 3.3rem; border-radius: 1.2rem; background: rgba(255,255,255,.72); padding: 0 .95rem; }
 .field-shell-fixed { width: 100%; }
 .field-action { width: 100%; justify-content: center; white-space: nowrap; }
 .field-action-button { box-shadow: none; transition: background-color .18s ease, border-color .18s ease, color .18s ease, opacity .18s ease; font-weight: 600; }
-.field-action-active { border: 1px solid color-mix(in oklab, var(--color-info) 55%, transparent); background: var(--color-info); color: var(--color-info-content); box-shadow: 0 3px 12px rgba(56,189,248,.12); }
+.field-action-active { border: 1px solid color-mix(in oklab, var(--color-info) 55%, transparent); background: var(--color-info); color: #fff; box-shadow: 0 3px 12px rgba(56,189,248,.12); }
 .field-action-active:hover:not(:disabled) { background: color-mix(in oklab, var(--color-info) 94%, white); border-color: color-mix(in oklab, var(--color-info) 62%, transparent); box-shadow: 0 3px 12px rgba(56,189,248,.10); }
 .field-action-active:active:not(:disabled) { transform: none; background: color-mix(in oklab, var(--color-info) 88%, black 3%); }
+.field-action-active:hover:not(:disabled), .field-action-active:active:not(:disabled) { color: #fff; }
 .field-action-inactive { border: 1px solid rgba(15,23,42,.05); background: rgba(15,23,42,.06); color: rgba(15,23,42,.24); box-shadow: none; }
 .select-shell { position: relative; display: flex; align-items: center; height: 3.3rem; width: 100%; }
 .select-shell-icon { position: absolute; left: .95rem; z-index: 1; pointer-events: none; }

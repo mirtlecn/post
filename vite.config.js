@@ -10,10 +10,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     proxy: {
-      '/__post_api__': {
+      '/__post_admin_api__': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
-        rewrite: () => '/',
+        rewrite: () => '/api/admin',
       },
     },
   },

@@ -25,6 +25,7 @@ npm start
 
 Required: `LINKS_REDIS_URL`, `SECRET_KEY`
 
+Optional: `ADMIN_KEY` (only for `/admin` GUI login; if missing, GUI login falls back to `SECRET_KEY`)
 Optional: `MAX_CONTENT_SIZE_KB` (default 500), `MAX_FILE_SIZE_MB` (default 10), `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`, `S3_REGION`
 
 ---
