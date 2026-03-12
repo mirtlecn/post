@@ -1,5 +1,6 @@
 import {
-  Code2,
+  Check,
+  ChevronDown,
   Clock3,
   Copy,
   File,
@@ -34,6 +35,7 @@ export const icons = {
   send: SendHorizontal,
   sparkles: WandSparkles,
   text: Text,
-  code: Code2,
+  chevronDown: ChevronDown,
+  check: Check,
   delete: Trash2,
 };

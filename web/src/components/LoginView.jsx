@@ -38,7 +38,7 @@ export function LoginView({ password, onChange, onSubmit, isBusy, error }) {
           <div className="login-corner-meta">
             <span>© Mirtle</span>
             <span className="app-footer-sep">|</span>
-            <a href="https://github.com/mirtlecn/post" target="_blank">Source code</a>
+            <a href="https://github.com/mirtlecn/post" rel="noreferrer" target="_blank">Source code</a>
           </div>
         </div>
       </div>

@@ -2,32 +2,38 @@ import { useEffect, useRef, useState } from 'react';
 import { icons } from '../icons/Icons.jsx';
 import { useComposer } from '../hooks/useComposer.js';
 
+const PATH_PATTERN = '[A-Za-z0-9_.\\-()/]{1,99}';
+const CONVERT_META = {
+  none: { icon: icons.sparkles },
+  md2html: { icon: icons.fileCode },
+  qrcode: { icon: icons.qrcode },
+  html: { icon: icons.fileBadge },
+  url: { icon: icons.link },
+  text: { icon: icons.text },
+};
+
+function hasFiles(event) {
+  const types = Array.from(event.dataTransfer?.types || []);
+  return types.includes('Files');
+}
+
 export function CreatePanel(props) {
   const composer = useComposer(props);
   const [globalDragging, setGlobalDragging] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [selectOpen, setSelectOpen] = useState(false);
   const globalDragDepthRef = useRef(0);
   const fileInputRef = useRef(null);
+  const selectRef = useRef(null);
+  const textareaRef = useRef(null);
   const CloseIcon = icons.close;
   const FileBadgeIcon = icons.fileBadge;
   const UploadIcon = icons.file;
+  const BusyIcon = icons.refresh;
   const PathIcon = icons.hash;
   const TtlIcon = icons.clock;
-  const convertMeta = {
-    none: { icon: icons.sparkles },
-    md2html: { icon: icons.fileCode },
-    qrcode: { icon: icons.qrcode },
-    html: { icon: icons.fileBadge },
-    url: { icon: icons.link },
-    text: { icon: icons.text },
-  };
-  const CurrentConvertIcon = convertMeta[composer.form.convert]?.icon || icons.sparkles;
-  const PATH_PATTERN = '[A-Za-z0-9_.\\-()/]{1,99}';
-
-  function hasFiles(event) {
-    const types = Array.from(event.dataTransfer?.types || []);
-    return types.includes('Files');
-  }
+  const CaretIcon = icons.chevronDown;
+  const CurrentConvertIcon = CONVERT_META[composer.form.convert]?.icon || icons.sparkles;
 
   useEffect(() => {
     function onWindowDragEnter(event) {
@@ -74,6 +80,10 @@ export function CreatePanel(props) {
     };
   }, []);
 
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
   function openPicker() {
     fileInputRef.current?.click();
   }
@@ -95,6 +105,15 @@ export function CreatePanel(props) {
   function onTtlChange(event) {
     const digits = event.target.value.replace(/\D/g, '');
     composer.setValue('ttl', digits);
+  }
+
+  function onConvertChange(event) {
+    composer.set('convert')(event);
+    requestAnimationFrame(() => {
+      setSelectOpen(false);
+      const select = selectRef.current;
+      if (select && document.activeElement === select) select.blur();
+    });
   }
 
   return (
@@ -143,17 +162,21 @@ export function CreatePanel(props) {
           ) : (
             <div className="composer-editor">
               <textarea
+                ref={textareaRef}
                 className={`textarea textarea-ghost composer-textarea ${globalDragging ? 'composer-textarea-hidden' : ''}`}
                 onChange={composer.set('url')}
                 onKeyDown={composer.onShortcut}
-                placeholder="Input text here or drag and drop file"
+                placeholder=""
                 value={composer.form.url}
               />
-              <div className="tooltip tooltip-left composer-upload-wrap" data-tip="Upload file">
-                <button className="btn btn-ghost btn-sm composer-upload" onClick={openPicker} type="button">
-                  <UploadIcon className="size-4 opacity-60" strokeWidth={2.1} />
-                </button>
-              </div>
+              {!composer.form.url.trim() && !globalDragging && (
+                <div className="composer-hint">
+                  <span>Input texts or </span>
+                  <button className="composer-hint-upload" onClick={openPicker} type="button">
+                    upload a file
+                  </button>
+                </div>
+              )}
               {globalDragging && (
                 <div className={`composer-drop-overlay ${dragging ? 'composer-drop-overlay-ready' : ''}`}>
                   <UploadIcon className="size-10" strokeWidth={2.1} />
@@ -199,9 +222,22 @@ export function CreatePanel(props) {
               <input disabled value="file" />
             </div>
           ) : (
-            <div className="select-shell">
+            <div className={`select-shell ${selectOpen ? 'select-shell-open' : ''}`}>
               <CurrentConvertIcon className="select-shell-icon size-4 opacity-60" strokeWidth={2} />
-              <select className="select select-bordered select-shell-input" onChange={composer.set('convert')} value={composer.form.convert}>
+              <CaretIcon className="select-shell-caret size-4" strokeWidth={2.2} />
+              <select
+                ref={selectRef}
+                className="select select-bordered select-shell-input"
+                onBlur={() => setSelectOpen(false)}
+                onChange={onConvertChange}
+                onFocus={() => setSelectOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setSelectOpen(false);
+                  if (event.key === 'Enter' || event.key === ' ') setSelectOpen(true);
+                }}
+                onPointerDown={() => setSelectOpen(true)}
+                value={composer.form.convert}
+              >
                 <option value="none">auto type</option>
                 <option value="md2html">md2html</option>
                 <option value="qrcode">qrcode</option>
@@ -212,7 +248,7 @@ export function CreatePanel(props) {
             </div>
           )}
           <button className={`btn field-shell field-action field-action-button h-12 min-h-12 self-end rounded-[1.2rem] px-4 ${composer.canSubmit ? 'field-action-active' : 'field-action-inactive'}`} disabled={!composer.canSubmit} type="submit">
-            <icons.send className="size-4" strokeWidth={2.2} />
+            {composer.busy ? <BusyIcon className="size-4 animate-spin" strokeWidth={2.2} /> : <icons.send className="size-4" strokeWidth={2.2} />}
             <span>Post</span>
           </button>
         </div>

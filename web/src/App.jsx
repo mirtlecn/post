@@ -7,7 +7,7 @@ export default function App() {
   const session = useSession();
 
   return (
-    <div data-theme="postlight" className="app-shell">
+    <div className="app-shell">
       {session.booting ? (
         <LoadingView />
       ) : session.token ? (

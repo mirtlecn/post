@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { TOKEN_KEY } from '../config.js';
 import { apiRequest } from '../lib/api.js';
 
@@ -9,13 +9,20 @@ export function useSession() {
   const [isBusy, setIsBusy] = useState(false);
   const [booting, setBooting] = useState(Boolean(localStorage.getItem(TOKEN_KEY)));
 
+  const logout = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    setToken('');
+    setPassword('');
+    setError('');
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem(TOKEN_KEY);
     if (!saved) return void setBooting(false);
     apiRequest(saved).then(() => setToken(saved)).catch(logout).finally(() => setBooting(false));
-  }, []);
+  }, [logout]);
 
-  async function login(event) {
+  const login = useCallback(async (event) => {
     event.preventDefault();
     const nextToken = password.trim();
     if (!nextToken) return;
@@ -31,14 +38,7 @@ export function useSession() {
     } finally {
       setIsBusy(false);
     }
-  }
-
-  function logout() {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken('');
-    setPassword('');
-    setError('');
-  }
+  }, [password]);
 
   return { booting, error, isBusy, login, logout, password, setPassword, token };
 }
