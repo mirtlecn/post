@@ -18,6 +18,9 @@ import { respondByType } from '../lib/utils/serve.js';
 
 export default async function handler(req, res) {
   try {
+    const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const publicPath = requestUrl.searchParams.get('path');
+
     switch (req.method) {
       case 'POST':
         if (!isAuthenticated(req)) return errorResponse(res, { code: 'unauthorized', message: 'Unauthorized' }, 401);
@@ -36,8 +39,8 @@ export default async function handler(req, res) {
           if (await handleLookupAuthedFromBody(req, res)) return;
           return await handleList(req, res);
         }
-        // 未认证：将 '/' 作为普通路径查找
-        return await handleRootPath(req, res);
+        // 未认证：根路径和公开 path 都从这里处理
+        return await handlePublicGet(req, res, publicPath);
 
       default:
         return errorResponse(res, { code: 'method_not_allowed', message: 'Method not allowed' }, 405);
@@ -85,15 +88,15 @@ async function handleLookupAuthedFromBody(req, res) {
 }
 
 /**
- * 未认证的 GET /：在 Redis 中查找 path='/' 并响应。
- * 行为与 [path].js 中的非认证逻辑一致。
+ * 未认证的 GET：path 为空时查找 '/'，否则按公开短链查找。
  */
-async function handleRootPath(req, res) {
+async function handlePublicGet(req, res, publicPath) {
+  const path = publicPath ? decodeURIComponent(publicPath) : '/';
   const redis = await getRedisClient();
-  const stored = await redis.get(LINKS_PREFIX + '/');
+  const stored = await redis.get(LINKS_PREFIX + path);
 
   if (!stored) return errorResponse(res, { code: 'not_found', message: 'URL not found' }, 404);
 
   const { type, content } = parseStoredValue(stored);
-  return await respondByType(req, res, { type, content, path: '/', redis });
+  return await respondByType(req, res, { type, content, path, redis });
 }

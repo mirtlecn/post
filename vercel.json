@@ -18,11 +18,11 @@
     },
     {
       "src": "^/$",
-      "dest": "/api/index.js"
+      "dest": "/api"
     },
     {
       "src": "^/(.+)$",
-      "dest": "/api/[path].js"
+      "dest": "/api?path=$1"
     }
   ]
 }
