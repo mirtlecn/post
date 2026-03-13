@@ -112,9 +112,7 @@ async function tryServeAdmin(req, res) {
   }
 
   if (!pathname.startsWith('/admin/assets/')) {
-    res.statusCode = 404;
-    res.end('Not found');
-    return true;
+    return false;
   }
 
   if (!existsSync(indexPath)) {

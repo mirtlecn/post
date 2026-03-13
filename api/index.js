@@ -90,7 +90,6 @@ async function handleLookupAuthedFromBody(req, res) {
 async function handlePublicGet(req, res) {
   const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const path = getPublicPath(requestUrl);
-  console.log('Public GET request for path:', path);
   const redis = await getRedisClient();
   const stored = await redis.get(LINKS_PREFIX + path);
 
