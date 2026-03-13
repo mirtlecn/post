@@ -34,6 +34,7 @@ export function LoginView({ password, onChange, onSubmit, isBusy, error }) {
                   {isBusy ? <span className="loading loading-spinner loading-sm" /> : <SendIcon className="size-5" strokeWidth={2.2} />}
                 </button>
               </label>
+              {error ? <p className="login-error-message">{error}</p> : null}
             </form>
           </div>
           <div className="login-corner-meta">

@@ -7,6 +7,13 @@ export async function readJson(response) {
   catch { return { error: text.trim() }; }
 }
 
+function buildRequestError(response, payload, fallbackMessage) {
+  const error = new Error(payload?.error || fallbackMessage);
+  error.status = response.status;
+  error.payload = payload;
+  return error;
+}
+
 async function requestJson(url, init = {}, fallbackMessage) {
   const response = await fetch(url, {
     ...init,
@@ -14,7 +21,7 @@ async function requestJson(url, init = {}, fallbackMessage) {
     headers: init.headers || {},
   });
   const payload = await readJson(response);
-  if (!response.ok) throw new Error(payload?.error || fallbackMessage);
+  if (!response.ok) throw buildRequestError(response, payload, fallbackMessage);
   return payload;
 }
 

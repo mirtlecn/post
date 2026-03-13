@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sessionRequest } from '../lib/api.js';
 
+const WRONG_KEY_MESSAGE = 'Wrong key';
+const SESSION_CHECK_ERROR_MESSAGE = 'Unable to verify session. Try again.';
+const SESSION_REQUEST_ERROR_MESSAGE = 'Request failed. Try again.';
+
+function isUnauthorized(error) {
+  return error?.status === 401;
+}
+
 export function useSession() {
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -27,10 +35,15 @@ export function useSession() {
     let cancelled = false;
     sessionRequest()
       .then(() => {
-        if (!cancelled) setAuthenticated(true);
+        if (!cancelled) {
+          setAuthenticated(true);
+          setError('');
+        }
       })
-      .catch(() => {
-        if (!cancelled) setAuthenticated(false);
+      .catch((requestError) => {
+        if (cancelled) return;
+        setAuthenticated(false);
+        setError(isUnauthorized(requestError) ? '' : SESSION_CHECK_ERROR_MESSAGE);
       })
       .finally(() => {
         if (!cancelled) setBooting(false);
@@ -50,8 +63,9 @@ export function useSession() {
       await sessionRequest({ method: 'POST', body: JSON.stringify({ password: nextPassword }) });
       setAuthenticated(true);
       setPassword('');
-    } catch {
-      setError('Wrong key');
+    } catch (requestError) {
+      setAuthenticated(false);
+      setError(isUnauthorized(requestError) ? WRONG_KEY_MESSAGE : SESSION_REQUEST_ERROR_MESSAGE);
     } finally {
       setIsBusy(false);
     }

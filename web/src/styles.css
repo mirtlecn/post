@@ -66,6 +66,7 @@ body, #root { margin: 0; min-height: 100vh; }
 .login-corner-meta a:hover { color: color-mix(in oklab, var(--color-base-content) 80%, transparent); text-decoration: underline; text-underline-offset: 2px; }
 .login-input { border-width: 2px; border-radius: 1.2rem; background: color-mix(in oklab, var(--color-base-100) 74%, transparent); box-shadow: none; padding-right: .45rem; transition: border-color .2s ease, box-shadow .2s ease; }
 .login-input-error { border-color: var(--color-error); box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-error) 22%, transparent); }
+.login-error-message { margin: .7rem 0 0; color: var(--color-error); font-size: .92rem; }
 .login-submit { width: 2.5rem; min-width: 2.5rem; border-radius: .85rem; }
 .masked-input { -webkit-text-security: disc; }
 .composer-shell { position: relative; min-height: 18rem; border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent); border-radius: 1.75rem; background: color-mix(in oklab, var(--color-base-100) 88%, var(--color-base-content) 12%); padding: 1rem; transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
