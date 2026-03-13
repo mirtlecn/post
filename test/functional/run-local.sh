@@ -33,9 +33,6 @@ wait_for_ready() {
 
 cd "$ROOT_DIR"
 
-echo "[local] 构建前端"
-npm run build
-
 echo "[local] 启动 npm start"
 npm start >"$LOG_FILE" 2>&1 &
 SERVER_PID=$!

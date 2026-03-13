@@ -176,14 +176,17 @@ add_created_path() {
 
 remove_created_path() {
   local target="$1"
-  local next=()
+  local -a remaining_paths=()
   local item
   for item in "${CREATED_PATHS[@]}"; do
     if [ "$item" != "$target" ]; then
-      next+=("$item")
+      remaining_paths+=("$item")
     fi
   done
-  CREATED_PATHS=("${next[@]}")
+  CREATED_PATHS=()
+  if [ "${#remaining_paths[@]}" -gt 0 ]; then
+    CREATED_PATHS=("${remaining_paths[@]}")
+  fi
 }
 
 uniq_path() {

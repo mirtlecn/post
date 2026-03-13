@@ -143,13 +143,10 @@ Prerequisites:
 # Install dependencies
 npm install
 
-# Build admin UI
-npm run build
-
 # Configure environment variables
 cp .env.example .env.local
 
-# Start local server (http://localhost:3000)
+# Build admin UI and start local server (http://localhost:3000)
 npm start
 
 # Visit admin UI at <http://localhost:3000/admin>
