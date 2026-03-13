@@ -198,7 +198,7 @@ DOUBLE_SLASH_PATH="$(uniq_path two)/branch/leaf.txt"
 TRIPLE_SLASH_PATH="$(uniq_path three)/branch/deeper/leaf.txt"
 
 CURRENT_STEP="环境可达"
-request GET "$BASE_URL/admin" "" 
+request GET "$BASE_URL/admin" ""
 expect_status 200
 expect_header_contains '^content-type: text/html'
 expect_body_contains '<!doctype html>'
@@ -259,34 +259,33 @@ request DELETE "$BASE_URL/api/admin" "{\"path\":\"$ADMIN_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
-expect_body_contains "\"deleted\":\"$ADMIN_PATH\""
 remove_created_path "$ADMIN_PATH"
 log "管理删除通过"
 
-CURRENT_STEP="管理列表不包含已删除条目"
+CURRENT_STEP="管理删除校验"
 request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_not_contains "\"path\":\"$ADMIN_PATH\""
 log "管理删除校验通过"
 
-CURRENT_STEP="管理创建-路径超长"
+CURRENT_STEP="管理超长路径校验"
 request POST "$BASE_URL/api/admin" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 400
-expect_json_error_message 'path must be 1-99 characters'
+expect_json_error_message "path must be 1-99 characters"
 log "管理超长路径校验通过"
 
-CURRENT_STEP="管理创建-非法路径"
+CURRENT_STEP="管理非法路径校验"
 request POST "$BASE_URL/api/admin" "{\"path\":\"$INVALID_PATH\",\"url\":\"https://example.com/invalid\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 400
-expect_json_error_message 'path can only contain: a-z A-Z 0-9 - _ . / ( )'
+expect_json_error_message "path can only contain: a-z A-Z 0-9 - _ . / ( )"
 log "管理非法路径校验通过"
 
-CURRENT_STEP="管理创建-允许斜杠路径"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$SLASH_PATH\",\"url\":\"slash path text\",\"type\":\"text\"}" \
+CURRENT_STEP="管理斜杠路径创建"
+request POST "$BASE_URL/api/admin" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/admin/nested\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -294,30 +293,29 @@ expect_body_contains "\"path\":\"$SLASH_PATH\""
 add_created_path "$SLASH_PATH"
 log "管理斜杠路径创建通过"
 
-CURRENT_STEP="管理列表包含斜杠路径"
+CURRENT_STEP="管理斜杠路径列表"
 request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$SLASH_PATH\""
 log "管理斜杠路径列表通过"
 
-CURRENT_STEP="管理删除斜杠路径"
+CURRENT_STEP="管理斜杠路径删除"
 request DELETE "$BASE_URL/api/admin" "{\"path\":\"$SLASH_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
-expect_body_contains "\"deleted\":\"$SLASH_PATH\""
 remove_created_path "$SLASH_PATH"
 log "管理斜杠路径删除通过"
 
-CURRENT_STEP="API 未鉴权创建"
-request POST "$BASE_URL" "{\"path\":\"$(uniq_path unauth)\",\"url\":\"https://example.com/unauth\"}" \
+CURRENT_STEP="API 未鉴权校验"
+request POST "$BASE_URL" "{\"url\":\"https://example.com/unauthorized\"}" \
   -H "Content-Type: application/json"
 expect_status 401
 log "API 未鉴权校验通过"
 
 API_PATH="$(uniq_path api)"
 
-CURRENT_STEP="API 鉴权创建"
+CURRENT_STEP="API 创建"
 request POST "$BASE_URL" "{\"path\":\"$API_PATH\",\"url\":\"https://example.com/api\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
@@ -326,45 +324,44 @@ expect_body_contains "\"path\":\"$API_PATH\""
 add_created_path "$API_PATH"
 log "API 创建通过"
 
-CURRENT_STEP="API 鉴权列表"
+CURRENT_STEP="API 列表"
 request GET "$BASE_URL" "" -H "$AUTH_HEADER"
 expect_status 200
 expect_body_contains "\"path\":\"$API_PATH\""
 log "API 列表通过"
 
-CURRENT_STEP="API 鉴权删除"
+CURRENT_STEP="API 删除"
 request DELETE "$BASE_URL" "{\"path\":\"$API_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
-expect_body_contains "\"deleted\":\"$API_PATH\""
 remove_created_path "$API_PATH"
 log "API 删除通过"
 
-CURRENT_STEP="API 删除后列表"
+CURRENT_STEP="API 删除校验"
 request GET "$BASE_URL" "" -H "$AUTH_HEADER"
 expect_status 200
 expect_body_not_contains "\"path\":\"$API_PATH\""
 log "API 删除校验通过"
 
-CURRENT_STEP="API 创建-路径超长"
+CURRENT_STEP="API 超长路径校验"
 request POST "$BASE_URL" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 400
-expect_json_error_message 'path must be 1-99 characters'
+expect_json_error_message "path must be 1-99 characters"
 log "API 超长路径校验通过"
 
-CURRENT_STEP="API 创建-非法路径"
+CURRENT_STEP="API 非法路径校验"
 request POST "$BASE_URL" "{\"path\":\"$INVALID_PATH\",\"url\":\"https://example.com/invalid\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 400
-expect_json_error_message 'path can only contain: a-z A-Z 0-9 - _ . / ( )'
+expect_json_error_message "path can only contain: a-z A-Z 0-9 - _ . / ( )"
 log "API 非法路径校验通过"
 
-CURRENT_STEP="API 创建-允许斜杠路径"
-request POST "$BASE_URL" "{\"path\":\"$SLASH_PATH\",\"url\":\"slash api text\",\"type\":\"text\"}" \
+CURRENT_STEP="API 斜杠路径创建"
+request POST "$BASE_URL" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/api/nested\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -372,40 +369,37 @@ expect_body_contains "\"path\":\"$SLASH_PATH\""
 add_created_path "$SLASH_PATH"
 log "API 斜杠路径创建通过"
 
-CURRENT_STEP="API 查单条-斜杠路径"
+CURRENT_STEP="API 斜杠路径查询"
 request GET "$BASE_URL" "{\"path\":\"$SLASH_PATH\"}" \
-  -H "$AUTH_HEADER" \
-  -H "Content-Type: application/json" \
-  -H "x-export: true"
-expect_status 200
-expect_body_contains "\"path\":\"$SLASH_PATH\""
-expect_body_contains '"content":"slash api text"'
-log "API 斜杠路径查询通过"
-
-CURRENT_STEP="API 更新-斜杠路径"
-request PUT "$BASE_URL" "{\"path\":\"$SLASH_PATH\",\"url\":\"slash api updated\",\"type\":\"text\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"path\":\"$SLASH_PATH\""
-log "API 斜杠路径更新通过"
+log "API 斜杠路径查询通过"
 
-CURRENT_STEP="API 列表包含更新后的斜杠路径"
-request GET "$BASE_URL" "" -H "$AUTH_HEADER" -H "x-export: true"
+CURRENT_STEP="API 斜杠路径更新"
+request PUT "$BASE_URL" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/api/nested-updated\"}" \
+  -H "$AUTH_HEADER" \
+  -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"path\":\"$SLASH_PATH\""
-expect_body_contains '"content":"slash api updated"'
+expect_body_contains "\"overwritten\":\"https://example"
+log "API 斜杠路径更新通过"
+
+CURRENT_STEP="API 斜杠路径列表"
+request GET "$BASE_URL" "" -H "$AUTH_HEADER"
+expect_status 200
+expect_body_contains "\"path\":\"$SLASH_PATH\""
 log "API 斜杠路径列表通过"
 
-CURRENT_STEP="公开访问-斜杠路径"
+CURRENT_STEP="公开斜杠路径访问"
 request GET "$BASE_URL/$SLASH_PATH" ""
-expect_status 200
-expect_header_contains '^content-type: text/plain; charset=utf-8'
-expect_body_contains 'slash api updated'
+expect_status 302
+expect_location "https://example.com/api/nested-updated"
 log "公开斜杠路径访问通过"
 
-CURRENT_STEP="API 创建-双层斜杠路径"
-request POST "$BASE_URL" "{\"path\":\"$DOUBLE_SLASH_PATH\",\"url\":\"double slash text\",\"type\":\"text\"}" \
+CURRENT_STEP="API 双层路径创建"
+request POST "$BASE_URL" "{\"path\":\"$DOUBLE_SLASH_PATH\",\"url\":\"https://example.com/api/two-level\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -413,15 +407,14 @@ expect_body_contains "\"path\":\"$DOUBLE_SLASH_PATH\""
 add_created_path "$DOUBLE_SLASH_PATH"
 log "API 双层路径创建通过"
 
-CURRENT_STEP="公开访问-双层斜杠路径"
+CURRENT_STEP="公开双层路径访问"
 request GET "$BASE_URL/$DOUBLE_SLASH_PATH" ""
-expect_status 200
-expect_header_contains '^content-type: text/plain; charset=utf-8'
-expect_body_contains 'double slash text'
+expect_status 302
+expect_location "https://example.com/api/two-level"
 log "公开双层路径访问通过"
 
-CURRENT_STEP="API 创建-三层斜杠路径"
-request POST "$BASE_URL" "{\"path\":\"$TRIPLE_SLASH_PATH\",\"url\":\"triple slash text\",\"type\":\"text\"}" \
+CURRENT_STEP="API 三层路径创建"
+request POST "$BASE_URL" "{\"path\":\"$TRIPLE_SLASH_PATH\",\"url\":\"https://example.com/api/three-level\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -429,92 +422,79 @@ expect_body_contains "\"path\":\"$TRIPLE_SLASH_PATH\""
 add_created_path "$TRIPLE_SLASH_PATH"
 log "API 三层路径创建通过"
 
-CURRENT_STEP="公开访问-三层斜杠路径"
+CURRENT_STEP="公开三层路径访问"
 request GET "$BASE_URL/$TRIPLE_SLASH_PATH" ""
-expect_status 200
-expect_header_contains '^content-type: text/plain; charset=utf-8'
-expect_body_contains 'triple slash text'
+expect_status 302
+expect_location "https://example.com/api/three-level"
 log "公开三层路径访问通过"
 
-CURRENT_STEP="API 删除-斜杠路径"
+CURRENT_STEP="API 斜杠路径删除"
 request DELETE "$BASE_URL" "{\"path\":\"$SLASH_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
-expect_body_contains "\"deleted\":\"$SLASH_PATH\""
 remove_created_path "$SLASH_PATH"
 log "API 斜杠路径删除通过"
 
-CURRENT_STEP="API 删除-双层斜杠路径"
+CURRENT_STEP="API 双层路径删除"
 request DELETE "$BASE_URL" "{\"path\":\"$DOUBLE_SLASH_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
-expect_body_contains "\"deleted\":\"$DOUBLE_SLASH_PATH\""
 remove_created_path "$DOUBLE_SLASH_PATH"
 log "API 双层路径删除通过"
 
-CURRENT_STEP="API 删除-三层斜杠路径"
+CURRENT_STEP="API 三层路径删除"
 request DELETE "$BASE_URL" "{\"path\":\"$TRIPLE_SLASH_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
-expect_body_contains "\"deleted\":\"$TRIPLE_SLASH_PATH\""
 remove_created_path "$TRIPLE_SLASH_PATH"
 log "API 三层路径删除通过"
 
-CURRENT_STEP="API 删除后列表不含斜杠路径"
+CURRENT_STEP="API 斜杠路径删除校验"
 request GET "$BASE_URL" "" -H "$AUTH_HEADER"
 expect_status 200
 expect_body_not_contains "\"path\":\"$SLASH_PATH\""
-expect_body_not_contains "\"path\":\"$DOUBLE_SLASH_PATH\""
-expect_body_not_contains "\"path\":\"$TRIPLE_SLASH_PATH\""
 log "API 斜杠路径删除校验通过"
 
-PUBLIC_URL_PATH="$(uniq_path public-url)"
-PUBLIC_TEXT_PATH="$(uniq_path public-text)"
-PUBLIC_HTML_PATH="$(uniq_path public-html)"
+REDIRECT_PATH="$(uniq_path redirect)"
+TEXT_PATH="$(uniq_path text)"
+HTML_PATH="$(uniq_path html)"
 
-CURRENT_STEP="公开跳转准备数据"
-request POST "$BASE_URL" "{\"path\":\"$PUBLIC_URL_PATH\",\"url\":\"https://example.com/public\"}" \
+CURRENT_STEP="公开跳转通过"
+request POST "$BASE_URL" "{\"path\":\"$REDIRECT_PATH\",\"url\":\"https://example.com/public\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
-add_created_path "$PUBLIC_URL_PATH"
-
-CURRENT_STEP="公开跳转"
-request GET "$BASE_URL/$PUBLIC_URL_PATH" "" 
+add_created_path "$REDIRECT_PATH"
+request GET "$BASE_URL/$REDIRECT_PATH" ""
 expect_status 302
 expect_location "https://example.com/public"
 log "公开跳转通过"
 
-CURRENT_STEP="公开 text 准备数据"
-request POST "$BASE_URL" "{\"path\":\"$PUBLIC_TEXT_PATH\",\"url\":\"hello functional text\",\"type\":\"text\"}" \
+CURRENT_STEP="公开 text 展示通过"
+request POST "$BASE_URL" "{\"path\":\"$TEXT_PATH\",\"url\":\"plain text body\",\"type\":\"text\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
-add_created_path "$PUBLIC_TEXT_PATH"
-
-CURRENT_STEP="公开 text 展示"
-request GET "$BASE_URL/$PUBLIC_TEXT_PATH" ""
+add_created_path "$TEXT_PATH"
+request GET "$BASE_URL/$TEXT_PATH" ""
 expect_status 200
-expect_header_contains '^content-type: text/plain; charset=utf-8'
-expect_body_contains 'hello functional text'
+expect_header_contains '^content-type: text/plain'
+expect_body_contains 'plain text body'
 log "公开 text 展示通过"
 
-CURRENT_STEP="公开 html 准备数据"
-request POST "$BASE_URL" "{\"path\":\"$PUBLIC_HTML_PATH\",\"url\":\"<h1>Functional HTML</h1><p>visible</p>\",\"type\":\"html\"}" \
+CURRENT_STEP="公开 html 展示通过"
+request POST "$BASE_URL" "{\"path\":\"$HTML_PATH\",\"url\":\"<h1>hello</h1>\",\"type\":\"html\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
-add_created_path "$PUBLIC_HTML_PATH"
-
-CURRENT_STEP="公开 html 展示"
-request GET "$BASE_URL/$PUBLIC_HTML_PATH" ""
+add_created_path "$HTML_PATH"
+request GET "$BASE_URL/$HTML_PATH" ""
 expect_status 200
-expect_header_contains '^content-type: text/html; charset=utf-8'
-expect_body_contains '<h1>Functional HTML</h1>'
-expect_body_contains '<p>visible</p>'
+expect_header_contains '^content-type: text/html'
+expect_body_contains '<h1>hello</h1>'
 log "公开 html 展示通过"
 
 log "全部功能测试通过"

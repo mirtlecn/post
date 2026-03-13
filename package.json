@@ -13,9 +13,9 @@
     "test": "node --test",
     "test:all": "npm test && npm run test:functional:local",
     "vercel": "vercel dev",
-    "test:functional": "bash scripts/test-functional.sh",
-    "test:functional:local": "bash scripts/run-functional-local.sh",
-    "test:functional:vercel": "bash scripts/run-functional-vercel.sh"
+    "test:functional": "bash test/functional/test-functional.sh",
+    "test:functional:local": "bash test/functional/run-local.sh",
+    "test:functional:vercel": "bash test/functional/run-vercel.sh"
   },
   "keywords": [],
   "author": "Mirtle",
