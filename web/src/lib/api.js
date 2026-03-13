@@ -1,8 +1,4 @@
-import { API_ROOT } from '../config.js';
-
-export function authHeaders(token, extras = {}) {
-  return { Authorization: `Bearer ${token}`, ...extras };
-}
+import { API_ROOT, SESSION_ROOT } from '../config.js';
 
 export async function readJson(response) {
   const text = await response.text();
@@ -11,20 +7,33 @@ export async function readJson(response) {
   catch { return { error: text.trim() }; }
 }
 
-export async function apiRequest(token, init = {}) {
-  const response = await fetch(API_ROOT, { ...init, headers: authHeaders(token, init.headers) });
+async function requestJson(url, init = {}, fallbackMessage) {
+  const response = await fetch(url, {
+    ...init,
+    credentials: 'include',
+    headers: init.headers || {},
+  });
   const payload = await readJson(response);
-  if (!response.ok) throw new Error(payload?.error || 'Request failed');
+  if (!response.ok) throw new Error(payload?.error || fallbackMessage);
   return payload;
 }
 
-export async function uploadFile(token, formData) {
-  const response = await fetch(API_ROOT, {
+export async function apiRequest(init = {}) {
+  return requestJson(API_ROOT, init, 'Request failed');
+}
+
+export async function uploadFile(formData) {
+  return requestJson(API_ROOT, {
     method: 'POST',
-    headers: authHeaders(token),
     body: formData,
-  });
-  const payload = await readJson(response);
-  if (!response.ok) throw new Error(payload?.error || 'Upload failed');
-  return payload;
+  }, 'Upload failed');
+}
+
+export async function sessionRequest(init = {}) {
+  return requestJson(SESSION_ROOT, {
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+    },
+  }, 'Session request failed');
 }

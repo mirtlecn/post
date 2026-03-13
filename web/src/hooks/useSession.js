@@ -1,37 +1,54 @@
 import { useCallback, useEffect, useState } from 'react';
-import { TOKEN_KEY } from '../config.js';
-import { apiRequest } from '../lib/api.js';
+import { sessionRequest } from '../lib/api.js';
 
 export function useSession() {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || '');
+  const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
-  const [booting, setBooting] = useState(Boolean(localStorage.getItem(TOKEN_KEY)));
+  const [booting, setBooting] = useState(true);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken('');
+  const clearSession = useCallback(() => {
+    setAuthenticated(false);
     setPassword('');
     setError('');
   }, []);
 
+  const logout = useCallback(async () => {
+    try {
+      await sessionRequest({ method: 'DELETE' });
+    } catch {
+      // 登出失败时也直接清本地界面状态，避免卡在已登录视图。
+    }
+    clearSession();
+  }, [clearSession]);
+
   useEffect(() => {
-    const saved = localStorage.getItem(TOKEN_KEY);
-    if (!saved) return void setBooting(false);
-    apiRequest(saved).then(() => setToken(saved)).catch(logout).finally(() => setBooting(false));
-  }, [logout]);
+    let cancelled = false;
+    sessionRequest()
+      .then(() => {
+        if (!cancelled) setAuthenticated(true);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthenticated(false);
+      })
+      .finally(() => {
+        if (!cancelled) setBooting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const login = useCallback(async (event) => {
     event.preventDefault();
-    const nextToken = password.trim();
-    if (!nextToken) return;
+    const nextPassword = password.trim();
+    if (!nextPassword) return;
     setIsBusy(true);
     setError('');
     try {
-      await apiRequest(nextToken);
-      localStorage.setItem(TOKEN_KEY, nextToken);
-      setToken(nextToken);
+      await sessionRequest({ method: 'POST', body: JSON.stringify({ password: nextPassword }) });
+      setAuthenticated(true);
       setPassword('');
     } catch {
       setError('Wrong key');
@@ -40,5 +57,5 @@ export function useSession() {
     }
   }, [password]);
 
-  return { booting, error, isBusy, login, logout, password, setPassword, token };
+  return { authenticated, booting, error, isBusy, login, logout, password, setPassword };
 }

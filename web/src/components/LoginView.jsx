@@ -18,6 +18,7 @@ export function LoginView({ password, onChange, onSubmit, isBusy, error }) {
             <form className={error ? 'animate-shake-soft' : ''} onSubmit={onSubmit}>
               <label className={`input input-lg login-input ${error ? 'login-input-error' : ''}`}>
                 <input
+                  autoComplete="current-password"
                   autoCapitalize="none"
                   autoCorrect="off"
                   autoFocus
@@ -26,7 +27,7 @@ export function LoginView({ password, onChange, onSubmit, isBusy, error }) {
                   onChange={(event) => onChange(event.target.value)}
                   placeholder="Enter password"
                   spellCheck={false}
-                  type="text"
+                  type="password"
                   value={password}
                 />
                 <button className="btn btn-neutral btn-square btn-sm login-submit" disabled={isBusy || !password.trim()}>

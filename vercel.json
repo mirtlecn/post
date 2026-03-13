@@ -17,6 +17,10 @@
       "dest": "/api/admin.js"
     },
     {
+      "src": "^/api/admin/session$",
+      "dest": "/api/admin/session.js"
+    },
+    {
       "src": "^/$",
       "dest": "/api"
     },

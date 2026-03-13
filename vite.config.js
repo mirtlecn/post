@@ -13,7 +13,7 @@ export default defineConfig({
       '/__post_admin_api__': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
-        rewrite: () => '/api/admin',
+        rewrite: (path) => path.replace(/^\/__post_admin_api__/, '/api/admin'),
       },
     },
   },

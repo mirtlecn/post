@@ -10,8 +10,8 @@ export default function App() {
     <div className="app-shell">
       {session.booting ? (
         <LoadingView />
-      ) : session.token ? (
-        <Dashboard onLogout={session.logout} token={session.token} />
+      ) : session.authenticated ? (
+        <Dashboard onLogout={session.logout} />
       ) : (
         <LoginView
           error={session.error}

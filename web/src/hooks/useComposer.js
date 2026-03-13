@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { apiRequest, uploadFile } from '../lib/api.js';
 
-const initial = { convert: 'none', path: '', ttl: '', url: '' };
+const INITIAL_FORM = { convert: 'none', path: '', ttl: '', url: '' };
 
 function getFileMeta(file) {
   if (!file) return null;
@@ -14,12 +14,12 @@ function getFileMeta(file) {
   };
 }
 
-export function useComposer({ notify, onCreated, token }) {
+export function useComposer({ notify, onCreated }) {
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState(null);
-  const [form, setForm] = useState(initial);
-  const set = (key) => (e) => setForm((v) => ({ ...v, [key]: e.target.value }));
-  const setValue = (key, value) => setForm((v) => ({ ...v, [key]: value }));
+  const [form, setForm] = useState(INITIAL_FORM);
+  const set = (key) => (event) => setForm((value) => ({ ...value, [key]: event.target.value }));
+  const setValue = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
   async function submit(event) {
     event.preventDefault();
@@ -40,7 +40,7 @@ export function useComposer({ notify, onCreated, token }) {
     data.append('file', file);
     if (form.path.trim()) data.append('path', form.path.trim());
     if (form.ttl.trim()) data.append('ttl', form.ttl.trim());
-    const payload = await uploadFile(token, data);
+    const payload = await uploadFile(data);
     notify('success', 'Uploaded');
     return payload;
   }
@@ -51,14 +51,14 @@ export function useComposer({ notify, onCreated, token }) {
     if (form.path.trim()) body.path = form.path.trim();
     if (form.ttl.trim()) body.ttl = Number(form.ttl.trim());
     if (form.convert !== 'none') body.convert = form.convert;
-    const payload = await apiRequest(token, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const payload = await apiRequest({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     notify('success', 'Created');
     return payload;
   }
 
   function reset() {
     setFile(null);
-    setForm(initial);
+    setForm(INITIAL_FORM);
   }
 
   function onShortcut(event) {

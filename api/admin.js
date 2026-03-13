@@ -8,7 +8,7 @@
 
 import handleApiRoot from './index.js';
 import { errorResponse } from '../lib/utils/response.js';
-import { isAdminAuthenticated } from '../lib/utils/auth.js';
+import { isAdminRequestAuthenticated } from '../lib/utils/auth.js';
 
 function withSecretAuthorization(req) {
   const headers = { ...req.headers, authorization: `Bearer ${process.env.SECRET_KEY}` };
@@ -18,7 +18,7 @@ function withSecretAuthorization(req) {
 }
 
 export default async function handler(req, res) {
-  if (!isAdminAuthenticated(req)) {
+  if (!isAdminRequestAuthenticated(req)) {
     return errorResponse(res, { code: 'unauthorized', message: 'Unauthorized' }, 401);
   }
   return handleApiRoot(withSecretAuthorization(req), res);

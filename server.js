@@ -45,10 +45,16 @@ if (missing.length > 0) {
 }
 
 // Dynamic imports so api modules read process.env AFTER loadEnv()
-const [{ default: handleApiRoot }, { default: handleApiPath }, { default: handleAdminApi }] = await Promise.all([
+const [
+  { default: handleApiRoot },
+  { default: handleApiPath },
+  { default: handleAdminApi },
+  { default: handleAdminSessionApi },
+] = await Promise.all([
   import('./api/index.js'),
   import('./api/[path].js'),
   import('./api/admin.js'),
+  import('./api/admin/session.js'),
 ]);
 
 const PORT = process.env.PORT || 3000;
@@ -65,6 +71,10 @@ const MIME_TYPES = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
 };
+
+function isRoute(url, pathname) {
+  return url === pathname || url.startsWith(`${pathname}?`);
+}
 
 // Wrap Node.js IncomingMessage/ServerResponse to match the minimal interface
 // that api/index.js and api/[path].js expect (same as Vercel's req/res).
@@ -127,13 +137,17 @@ createServer(async (req, res) => {
   try {
     if (await tryServeAdmin(req, res)) return;
   } catch (error) {
-      console.error('Failed to serve admin UI:', error);
-      res.statusCode = 500;
-      res.end('Internal server error');
-      return;
+    console.error('Failed to serve admin UI:', error);
+    res.statusCode = 500;
+    res.end('Internal server error');
+    return;
   }
 
-  if (req.url === '/api/admin' || req.url.startsWith('/api/admin?')) {
+  if (isRoute(req.url, '/api/admin/session')) {
+    return handleAdminSessionApi(req, res);
+  }
+
+  if (isRoute(req.url, '/api/admin')) {
     return handleAdminApi(req, res);
   }
 

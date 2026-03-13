@@ -9,7 +9,7 @@ import { ListPanel } from './ListPanel.jsx';
 import { ResultPanel } from './ResultPanel.jsx';
 import { ToastLayer } from './ToastLayer.jsx';
 
-export function Dashboard({ onLogout, token }) {
+export function Dashboard({ onLogout }) {
   const [items, setItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -19,13 +19,13 @@ export function Dashboard({ onLogout, token }) {
   const loadItems = useCallback(async () => {
     setItemsLoading(true);
     try {
-      setItems(sortItems(await apiRequest(token)));
+      setItems(sortItems(await apiRequest()));
     } catch (error) {
       showToast('error', error.message);
     } finally {
       setItemsLoading(false);
     }
-  }, [showToast, token]);
+  }, [showToast]);
 
   useEffect(() => {
     loadItems();
@@ -33,13 +33,13 @@ export function Dashboard({ onLogout, token }) {
 
   const remove = useCallback(async (path) => {
     try {
-      await apiRequest(token, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
+      await apiRequest({ method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
       setItems((v) => v.filter((item) => item.path !== path));
       showToast('success', 'Deleted');
     } catch (error) {
       showToast('error', error.message);
     }
-  }, [showToast, token]);
+  }, [showToast]);
 
   const copy = useCallback(async (text) => {
     try {
@@ -73,7 +73,7 @@ export function Dashboard({ onLogout, token }) {
           <IconButton icon={icons.logout} onClick={onLogout} title="Logout" />
         </div>
       </header>
-      <CreatePanel notify={showToast} onCreated={created} token={token} />
+      <CreatePanel notify={showToast} onCreated={created} />
       <div className="my-6">
         <ResultPanel onCopy={copy} result={result} />
       </div>
