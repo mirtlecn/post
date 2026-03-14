@@ -121,7 +121,7 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
                 </td>
                 <td className="max-w-md truncate" title={item.content}>{item.content}</td>
                 <td className="overflow-visible">
-                  <div className="relative z-20 flex justify-end gap-2 overflow-visible">
+                  <div className="flex justify-end gap-2 overflow-visible">
                     <IconButton icon={icons.open} onClick={() => { setConfirmPath(''); window.open(item.surl, '_blank', 'noreferrer'); }} title="Open" tooltip={actionTooltip} />
                     <IconButton
                       className={copiedPath === item.path ? 'text-success' : ''}

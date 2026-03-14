@@ -45,7 +45,7 @@ body, #root { margin: 0; min-height: 100vh; }
   background: color-mix(in oklab, var(--color-base-100) 94%, var(--color-base-200));
   box-shadow: inset 0 -1px 0 color-mix(in oklab, var(--color-base-content) 12%, transparent);
 }
-.tooltip-layer { position: relative; z-index: 30; }
+.tooltip-layer { position: relative; }
 .tooltip-layer::before, .tooltip-layer::after { z-index: 31; }
 .list-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
 .list-scroll::-webkit-scrollbar-track { background: color-mix(in oklab, var(--color-base-content) 7%, transparent); border-radius: 999px; }
