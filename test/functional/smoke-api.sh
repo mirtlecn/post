@@ -18,6 +18,7 @@ INVALID_PATH='bad[]path'
 LONG_BODY='0123456789abcdefghi full export body'
 CURRENT_YEAR="$(date -u +%Y)"
 CURRENT_MM_DD="$(date -u +%m-%d)"
+CURRENT_DATE="$(date -u +%F)"
 UPLOAD_PATH="upload-file-$(date +%s)-$$"
 UPLOAD_FILE_PATH="${UPLOAD_PATH}.md"
 
@@ -447,10 +448,10 @@ expect_body_contains "$CURRENT_YEAR"
 expect_body_contains "Howl Visual Draft"
 expect_body_contains "href=\"$RENDER_HTML_ITEM_PATH\""
 expect_body_contains "Castle Notes"
-expect_body_contains "☰ · $CURRENT_MM_DD"
+expect_body_contains "☰ · $CURRENT_DATE"
 expect_body_contains "href=\"$RENDER_TOPIC_PATH/notes/reference-link\""
-expect_body_contains "↗ · $CURRENT_MM_DD"
-expect_body_contains " · $CURRENT_MM_DD"
+expect_body_contains "↗ · $CURRENT_DATE"
+expect_body_contains " · $CURRENT_DATE"
 expect_body_not_contains "  · "
 log "render topic 首页渲染通过"
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTopicIndexMarkdown, renderTopicIndexHtml } from '../lib/services/topic-render.js';
 
-test('buildTopicIndexMarkdown sorts by updatedAt and groups by year', () => {
+test('buildTopicIndexMarkdown sorts by updatedAt and writes full dates inline', () => {
   const markdown = buildTopicIndexMarkdown('anime', 'Anime', [
     {
       path: 'castle-notes',
@@ -28,15 +28,9 @@ test('buildTopicIndexMarkdown sorts by updatedAt and groups by year', () => {
     markdown,
     [
       '# Anime',
-      '',
-      '## 2026',
-      '',
-      '- [Howl Visual Draft](anime/howl-visual) · 12-23',
-      '- [Castle in the Sky Notes](anime/castle-notes) ☰ · 12-21',
-      '',
-      '## 2025',
-      '',
-      '- [Poster Pack Winter](anime/poster-pack-winter.zip) ◫ · 10-18',
+      '- [Howl Visual Draft](anime/howl-visual) · 2026-12-23',
+      '- [Castle in the Sky Notes](anime/castle-notes) ☰ · 2026-12-21',
+      '- [Poster Pack Winter](anime/poster-pack-winter.zip) ◫ · 2025-10-18',
     ].join('\n'),
   );
 });
@@ -52,7 +46,7 @@ test('buildTopicIndexMarkdown uses full path fallback and type marks', () => {
     },
   ]);
 
-  assert.match(markdown, /\[notes\/howl-visual]\(anime\/notes\/howl-visual\) ↗ · 12-19/);
+  assert.match(markdown, /\[notes\/howl-visual]\(anime\/notes\/howl-visual\) ↗ · 2026-12-19/);
 });
 
 test('renderTopicIndexHtml uses topic title and topic-relative links', () => {
