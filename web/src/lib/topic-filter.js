@@ -12,3 +12,11 @@ export function filterItemsByTopic(items, selectedTopicPath) {
 
   return topicItem ? [topicItem, ...topicChildren] : topicChildren;
 }
+
+export function filterDashboardItems(items, { selectedTopicPath = '', createType = 'none' } = {}) {
+  if (createType === 'topic') {
+    return items.filter((item) => item.type === 'topic');
+  }
+
+  return filterItemsByTopic(items, selectedTopicPath);
+}

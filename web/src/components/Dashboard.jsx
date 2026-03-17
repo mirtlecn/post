@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../lib/api.js';
 import { sortItems } from '../config.js';
 import { icons } from '../icons/Icons.jsx';
-import { filterItemsByTopic, TOPIC_STORAGE_KEY } from '../lib/topic-filter.js';
+import { filterDashboardItems, TOPIC_STORAGE_KEY } from '../lib/topic-filter.js';
 import { useToast } from '../hooks/useToast.js';
 import { CreatePanel } from './CreatePanel.jsx';
 import { IconButton } from './IconButton.jsx';
@@ -16,6 +16,7 @@ export function Dashboard({ onLogout }) {
   const [page, setPage] = useState(1);
   const [result, setResult] = useState(null);
   const [selectedTopicPath, setSelectedTopicPath] = useState('');
+  const [composerType, setComposerType] = useState('none');
   const { toast, showToast, clearToast } = useToast();
 
   const loadItems = useCallback(async () => {
@@ -74,8 +75,8 @@ export function Dashboard({ onLogout }) {
 
   const topics = useMemo(() => items.filter((item) => item.type === 'topic'), [items]);
   const filteredItems = useMemo(
-    () => filterItemsByTopic(items, selectedTopicPath),
-    [items, selectedTopicPath],
+    () => filterDashboardItems(items, { selectedTopicPath, createType: composerType }),
+    [items, selectedTopicPath, composerType],
   );
 
   useEffect(() => {
@@ -112,6 +113,7 @@ export function Dashboard({ onLogout }) {
       <CreatePanel
         notify={showToast}
         onCreated={created}
+        onModeChange={setComposerType}
         selectedTopicPath={selectedTopicPath}
         onTopicChange={handleTopicChange}
         topics={topics}

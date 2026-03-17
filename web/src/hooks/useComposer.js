@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest, uploadFile } from '../lib/api.js';
-
-function buildInitialForm(topic = '') {
-  return { convert: 'none', path: '', title: '', topic, ttl: '', url: '' };
-}
-const PATH_SANITIZE_PATTERN = /[^a-zA-Z0-9_.\-()/]/g;
+import {
+  buildFileUploadData,
+  buildInitialForm,
+  buildRestoredForm,
+  buildTextRequestBody,
+  buildTopicModeForm,
+  canSubmitComposerForm,
+  isTopicCreateType,
+  normalizePathValue,
+  normalizeTopicNameValue,
+  normalizeTtlValue,
+} from '../lib/composer-mode.js';
 
 function getFileMeta(file) {
   if (!file) return null;
@@ -17,60 +24,37 @@ function getFileMeta(file) {
   };
 }
 
-function normalizePathValue(value) {
-  return value.replace(PATH_SANITIZE_PATTERN, '').slice(0, 99);
-}
-
-function normalizeTtlValue(value) {
-  return value.replace(/\D/g, '');
-}
-
-function buildTextRequestBody(form) {
-  const body = { url: form.url.trim() };
-  if (form.path.trim()) body.path = form.path.trim();
-  if (form.title.trim()) body.title = form.title.trim();
-  if (form.topic) body.topic = form.topic;
-  if (form.ttl.trim()) body.ttl = Number(form.ttl.trim());
-  if (form.convert !== 'none') body.convert = form.convert;
-  return body;
-}
-
-function buildFileUploadData(form, file) {
-  const data = new FormData();
-  data.append('file', file);
-  if (form.path.trim()) data.append('path', form.path.trim());
-  if (form.title.trim()) data.append('title', form.title.trim());
-  if (form.topic) data.append('topic', form.topic);
-  if (form.ttl.trim()) data.append('ttl', form.ttl.trim());
-  return data;
-}
-
 export function useComposer({ notify, onCreated, selectedTopicPath = '', topics = [] }) {
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState(null);
   const [form, setForm] = useState(buildInitialForm(selectedTopicPath));
-  const createFieldChangeHandler = (fieldName) => (event) =>
-    setForm((currentForm) => ({ ...currentForm, [fieldName]: event.target.value }));
+  const isTopicMode = isTopicCreateType(form.convert);
   const updateFormValue = (fieldName, fieldValue) =>
     setForm((currentForm) => ({ ...currentForm, [fieldName]: fieldValue }));
 
   useEffect(() => {
-    setForm((currentForm) => (
-      currentForm.topic === selectedTopicPath
+    setForm((currentForm) => {
+      if (isTopicCreateType(currentForm.convert)) {
+        return currentForm.topic === '' ? currentForm : { ...currentForm, topic: '' };
+      }
+
+      return currentForm.topic === selectedTopicPath
         ? currentForm
-        : { ...currentForm, topic: selectedTopicPath, path: '' }
-    ));
+        : { ...currentForm, topic: selectedTopicPath, path: '' };
+    });
   }, [selectedTopicPath]);
 
-  async function submit(event) {
+  async function submit(event, { resetForm } = {}) {
     event.preventDefault();
     setBusy(true);
     try {
       const payload = file ? await submitFile() : await submitText();
       await onCreated(payload);
-      reset();
+      reset(resetForm);
+      return true;
     } catch (error) {
       notify('error', error.message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -99,6 +83,10 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     updateFormValue('title', value.slice(0, 120));
   }
 
+  function updateUrl(value) {
+    updateFormValue('url', isTopicCreateType(form.convert) ? normalizeTopicNameValue(value) : value);
+  }
+
   function updateTtl(value) {
     updateFormValue('ttl', normalizeTtlValue(value));
   }
@@ -108,12 +96,26 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     updateFormValue('path', '');
   }
 
-  function reset() {
+  function reset(nextForm) {
     setFile(null);
-    setForm(buildInitialForm(selectedTopicPath));
+    setForm(nextForm ? buildRestoredForm(nextForm, selectedTopicPath) : buildInitialForm(selectedTopicPath));
+  }
+
+  function enterTopicMode() {
+    setFile(null);
+    setForm(buildTopicModeForm());
+  }
+
+  function restoreForm(snapshot) {
+    setFile(null);
+    setForm(buildRestoredForm(snapshot, selectedTopicPath));
   }
 
   function onShortcut(event) {
+    if (isTopicCreateType(form.convert) && event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      return;
+    }
     if (event.key !== 'Enter' || !event.shiftKey || event.nativeEvent?.isComposing) return;
     event.preventDefault();
     if (!canSubmit) return;
@@ -125,23 +127,26 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     () => topics.find((item) => item.path === form.topic) || null,
     [form.topic, topics],
   );
-  const canSubmit = Boolean(file || form.url.trim()) && !busy;
+  const canSubmit = canSubmitComposerForm({ busy, file, form });
 
   return {
     busy,
     canSubmit,
-    createFieldChangeHandler,
+    enterTopicMode,
     file,
     fileMeta,
     form,
+    isTopicMode,
     selectedTopic,
     onShortcut,
     reset,
+    restoreForm,
     setFile,
     submit,
     updatePath,
     updateTitle,
     updateTopic,
+    updateUrl,
     updateFormValue,
     updateTtl,
   };

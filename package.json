@@ -12,7 +12,6 @@
     "start": "npm run build && npm run start:server",
     "start:server": "node server.js",
     "test": "node --test",
-    "test:all": "npm test && npm run test:functional:local",
     "vercel": "vercel dev",
     "test:functional": "bash test/functional/test-functional.sh",
     "test:functional:local": "bash test/functional/run-local.sh",
