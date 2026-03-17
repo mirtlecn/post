@@ -181,7 +181,7 @@ export function CreatePanel(props) {
                   className="input input-ghost composer-title-inline-input"
                   maxLength={120}
                   onChange={(event) => composer.updateTitle(event.target.value)}
-                  placeholder="describe this post in short worlds"
+                  placeholder=""
                   value={composer.form.title}
                 />
               </>
