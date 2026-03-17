@@ -87,6 +87,7 @@ export function getComposerUiState({
   titleOpen = false,
 }) {
   const topicMode = isTopicCreateType(form.convert);
+  const ttlValue = form.ttl.trim();
   return {
     editorPlaceholder: topicMode ? 'Input a valid topic name' : '',
     pathInputVisible: !topicMode,
@@ -95,6 +96,7 @@ export function getComposerUiState({
     titleVisible: !topicMode && (titleOpen || Boolean(form.title)),
     topicPrefix: topicMode ? '/' : (selectedTopic ? `${selectedTopic.path}/` : '/'),
     ttlDisabled: topicMode,
-    ttlPlaceholder: topicMode ? '0' : '1440',
+    ttlPlaceholder: 'never expires',
+    ttlSuffixVisible: Boolean(ttlValue) && !topicMode,
   };
 }

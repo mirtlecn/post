@@ -33,6 +33,7 @@ export function CreatePanel(props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [topicOpen, setTopicOpen] = useState(false);
   const [titleOpen, setTitleOpen] = useState(false);
+  const [ttlFocused, setTtlFocused] = useState(false);
   const [topicModeSnapshot, setTopicModeSnapshot] = useState(null);
   const globalDragDepthRef = useRef(0);
   const fileInputRef = useRef(null);
@@ -68,7 +69,10 @@ export function CreatePanel(props) {
     topicPrefix,
     ttlDisabled,
     ttlPlaceholder,
+    ttlSuffixVisible,
   } = uiState;
+  const effectiveTtlPlaceholder = ttlFocused ? '' : ttlPlaceholder;
+  const effectiveTtlSuffixVisible = ttlFocused || ttlSuffixVisible;
 
   useEffect(() => {
     props.onModeChange?.(composer.form.convert);
@@ -126,11 +130,17 @@ export function CreatePanel(props) {
   useEffect(() => {
     if (composer.isTopicMode) {
       setTitleOpen(false);
+      setTtlFocused(false);
       return;
     }
 
-    if (composer.form.title) setTitleOpen(true);
-  }, [composer.form.title, composer.isTopicMode]);
+    if (composer.form.title || composer.form.topic) setTitleOpen(true);
+  }, [composer.form.title, composer.form.topic, composer.isTopicMode]);
+
+  useEffect(() => {
+    if (!ttlDisabled) return;
+    setTtlFocused(false);
+  }, [ttlDisabled]);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -260,6 +270,7 @@ export function CreatePanel(props) {
     if (composer.isTopicMode) return;
 
     const nextTopicPath = event.target.value;
+    if (nextTopicPath) setTitleOpen(true);
     composer.updateTopic(nextTopicPath);
     props.onTopicChange?.(nextTopicPath);
     requestAnimationFrame(() => {
@@ -435,20 +446,22 @@ export function CreatePanel(props) {
             )}
           </div>
           <div className="field-shell field-shell-fixed input input-bordered">
-            <TtlIcon className="size-4 opacity-60" strokeWidth={2} />
+            <TtlIcon className="size-4 shrink-0 opacity-60" strokeWidth={2} />
             <input
               className="grow"
               disabled={ttlDisabled}
+              onBlur={() => setTtlFocused(false)}
+              onFocus={() => setTtlFocused(true)}
               inputMode="numeric"
               min={0}
               onChange={(event) => composer.updateTtl(event.target.value)}
               pattern="[0-9]*"
-              placeholder={ttlPlaceholder}
-              title="TTL in minutes, 0 for never expire"
+              placeholder={effectiveTtlPlaceholder}
+              title="Leave empty to never expire"
               type="text"
               value={composer.form.ttl}
             />
-            <span className="opacity-55">mins</span>
+            {effectiveTtlSuffixVisible ? <span className="opacity-55">mins</span> : null}
           </div>
           {composer.file ? (
             <div className="field-shell field-shell-fixed input input-bordered">

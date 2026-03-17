@@ -143,7 +143,8 @@ test('getComposerUiState exposes topic mode UI constraints', () => {
       titleVisible: false,
       topicPrefix: '/',
       ttlDisabled: true,
-      ttlPlaceholder: '0',
+      ttlPlaceholder: 'never expires',
+      ttlSuffixVisible: false,
     },
   );
 });
@@ -164,7 +165,32 @@ test('getComposerUiState keeps normal editor affordances outside topic mode', ()
       titleVisible: true,
       topicPrefix: '/',
       ttlDisabled: false,
-      ttlPlaceholder: '1440',
+      ttlPlaceholder: 'never expires',
+      ttlSuffixVisible: false,
     },
+  );
+});
+
+test('getComposerUiState still allows the title row to stay hidden after topic auto-open was dismissed', () => {
+  assert.deepEqual(
+    getComposerUiState({
+      form: { ...buildInitialForm('anime'), convert: 'none', title: '' },
+      selectedTopic: { path: 'anime' },
+      globalDragging: false,
+      titleOpen: false,
+    }).titleVisible,
+    false,
+  );
+});
+
+test('getComposerUiState shows ttl suffix only when a numeric ttl is present', () => {
+  assert.equal(
+    getComposerUiState({
+      form: { ...buildInitialForm(''), convert: 'none', ttl: '30' },
+      selectedTopic: null,
+      globalDragging: false,
+      titleOpen: false,
+    }).ttlSuffixVisible,
+    true,
   );
 });
