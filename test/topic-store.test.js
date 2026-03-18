@@ -26,6 +26,29 @@ class FakeRedis {
     this.failSetKeys = new Set();
   }
 
+  mGet(keys) {
+    return Promise.resolve(keys.map((key) => this.values.get(key) ?? null));
+  }
+
+  multi() {
+    const commands = [];
+    const redis = this;
+
+    return {
+      ttl(key) {
+        commands.push(() => redis.ttl(key));
+        return this;
+      },
+      zCard(key) {
+        commands.push(() => redis.zCard(key));
+        return this;
+      },
+      exec() {
+        return Promise.all(commands.map((command) => command()));
+      },
+    };
+  }
+
   async get(key) {
     return this.values.get(key) ?? null;
   }
@@ -192,6 +215,25 @@ test('resolveTopicPath prefers the longest topic prefix', async () => {
   });
 });
 
+test('resolveTopicPath ignores non-topic prefixes while checking candidates in batch', async () => {
+  const redis = new FakeRedis();
+  await redis.set('surl:blog', buildStoredValue({ type: 'text', content: 'hello', title: 'blog' }));
+  await redis.set(
+    'surl:blog/2026',
+    buildStoredValue({ type: 'topic', content: '<html></html>', title: 'Archive' }),
+  );
+
+  const resolved = await resolveTopicPath(redis, { path: 'blog/2026/post-1' });
+
+  assert.deepEqual(resolved, {
+    isTopicItem: true,
+    topicName: 'blog/2026',
+    relativePath: 'post-1',
+    fullPath: 'blog/2026/post-1',
+    existingTopic: true,
+  });
+});
+
 test('resolveTopicPath rejects root path when topic is provided', async () => {
   const redis = new FakeRedis();
   await redis.set('surl:anime', buildStoredValue({ type: 'topic', content: '<html></html>', title: 'anime' }));
@@ -288,6 +330,18 @@ test('rebuildTopicIndex removes stale members', async () => {
   assert.equal(await countTopicItems(redis, 'anime'), 1);
   const members = redis.sortedSets.get(getTopicItemsKey('anime')).map((entry) => entry.value).sort();
   assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER, 'alive']);
+});
+
+test('adoptTopicItems indexes existing non-topic entries under the topic path', async () => {
+  const redis = new FakeRedis();
+  await redis.set('surl:anime/alpha', buildStoredValue({ type: 'text', content: 'a', title: 'Alpha' }));
+  await redis.set('surl:anime/beta', buildStoredValue({ type: 'html', content: '<p>b</p>', title: 'Beta' }));
+  await redis.set('surl:anime/gamma', buildStoredValue({ type: 'topic', content: '<html></html>', title: 'Gamma' }));
+
+  await createTopic(redis, 'anime');
+
+  const members = redis.sortedSets.get(getTopicItemsKey('anime')).map((entry) => entry.value).sort();
+  assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER, 'alpha', 'beta']);
 });
 
 test('deleteTopicItem removes content and updates the topic index', async () => {
