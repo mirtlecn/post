@@ -38,6 +38,19 @@ test('buildTopicIndexMarkdown sorts by updatedAt and writes full dates inline', 
   );
 });
 
+test('buildTopicIndexMarkdown formats dates in Asia/Shanghai', () => {
+  const markdown = buildTopicIndexMarkdown('anime', 'Anime', [
+    {
+      path: 'timezone-check',
+      type: 'text',
+      title: 'Timezone Check',
+      updatedAt: Date.UTC(2023, 7, 16, 16, 0, 0) / 1000,
+    },
+  ]);
+
+  assert.match(markdown, /\[Timezone Check]\(<\/anime\/timezone-check>\) ☰ · 2023-08-17/);
+});
+
 test('buildTopicIndexMarkdown uses full path fallback and type marks', () => {
   const markdown = buildTopicIndexMarkdown('anime', 'Anime', [
     {
