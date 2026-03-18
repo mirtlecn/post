@@ -58,6 +58,11 @@ cp .env.example .env.local
 # Build admin UI and start local server (http://localhost:3000)
 npm start
 
+# Bump the package version
+npm run version:bump -- patch
+# or
+npm run version:bump -- 1.3.6
+
 # Visit admin UI at <http://localhost:3000/admin>
 ```
 
