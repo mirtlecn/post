@@ -277,11 +277,11 @@ expect_header_contains "^location: https://example.com/cache"
 expect_header_contains "^cache-control: public, max-age=86400, s-maxage=86400"
 log "公开 url cache header 通过"
 
-CURRENT_STEP="公开 topic 响应带 8 小时缓存"
+CURRENT_STEP="公开 topic 响应带 10 分钟缓存"
 request GET "$BASE_URL/$CONTRACT_TOPIC_PATH"
 expect_status 200
 expect_header_contains "^content-type: text/html; charset=utf-8"
-expect_header_contains "^cache-control: public, max-age=28800, s-maxage=28800"
+expect_header_contains "^cache-control: public, max-age=600, s-maxage=600"
 expect_body_contains "Topic Entry"
 log "公开 topic cache header 通过"
 

@@ -47,11 +47,11 @@ test('respondByType omits body for head topic responses', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body, '');
-  assert.equal(response.getHeader('cache-control'), 'public, max-age=28800, s-maxage=28800');
+  assert.equal(response.getHeader('cache-control'), 'public, max-age=600, s-maxage=600');
   assert.equal(response.getHeader('content-type'), 'text/html; charset=utf-8');
 });
 
-test('respondByType serves topic responses with 8 hour cache headers', async () => {
+test('respondByType serves topic responses with 10 minute cache headers', async () => {
   const response = createMockResponse();
 
   await respondByType(createMockRequest({ method: 'GET' }), response, {
@@ -63,7 +63,7 @@ test('respondByType serves topic responses with 8 hour cache headers', async () 
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body, '<article>Topic</article>');
-  assert.equal(response.getHeader('cache-control'), 'public, max-age=28800, s-maxage=28800');
+  assert.equal(response.getHeader('cache-control'), 'public, max-age=600, s-maxage=600');
   assert.equal(response.getHeader('content-type'), 'text/html; charset=utf-8');
 });
 
