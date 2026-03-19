@@ -183,7 +183,7 @@ test('getComposerUiState keeps normal editor affordances outside topic mode', ()
       pathInputVisible: true,
       pathPlaceholder: 'custom/url/slug',
       showMetaToggle: true,
-      metaVisible: true,
+      metaVisible: false,
       topicPrefix: '/',
       ttlDisabled: false,
       ttlPlaceholder: 'never expires',
@@ -192,7 +192,7 @@ test('getComposerUiState keeps normal editor affordances outside topic mode', ()
   );
 });
 
-test('getComposerUiState keeps meta visible when created is already filled', () => {
+test('getComposerUiState keeps meta hidden when filled values exist but the user collapsed it', () => {
   assert.equal(
     getComposerUiState({
       form: { ...buildInitialForm(''), convert: 'none', createdDate: '2026-03-20' },
@@ -200,7 +200,7 @@ test('getComposerUiState keeps meta visible when created is already filled', () 
       globalDragging: false,
       metaOpen: false,
     }).metaVisible,
-    true,
+    false,
   );
 });
 

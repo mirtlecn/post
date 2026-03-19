@@ -121,13 +121,12 @@ export function getComposerUiState({
 }) {
   const topicMode = isTopicCreateType(form.convert);
   const ttlValue = form.ttl.trim();
-  const hasCreated = Boolean(buildCreatedValue(form));
   return {
     editorPlaceholder: topicMode ? 'Input a valid topic name' : '',
     pathInputVisible: !topicMode,
     pathPlaceholder: selectedTopic ? 'relative/path' : 'custom/url/slug',
     showMetaToggle: !globalDragging,
-    metaVisible: metaOpen || Boolean(form.title) || hasCreated,
+    metaVisible: metaOpen,
     topicPrefix: topicMode ? '/' : (selectedTopic ? `${selectedTopic.path}/` : '/'),
     ttlDisabled: topicMode,
     ttlPlaceholder: 'never expires',

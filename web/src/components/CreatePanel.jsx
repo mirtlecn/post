@@ -43,6 +43,8 @@ export function CreatePanel(props) {
   const syncMenuPositionRef = useRef(() => {});
   const topicRef = useRef(null);
   const textareaRef = useRef(null);
+  const createdDateRef = useRef(null);
+  const createdTimeRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState(null);
   const CloseIcon = icons.close;
   const FileBadgeIcon = icons.fileBadge;
@@ -132,13 +134,9 @@ export function CreatePanel(props) {
   }, []);
 
   useEffect(() => {
-    if (composer.isTopicMode) {
-      setTtlFocused(false);
-      return;
-    }
-
-    if (composer.form.title || composer.form.createdDate || composer.form.topic) setMetaOpen(true);
-  }, [composer.form.title, composer.form.createdDate, composer.form.topic, composer.isTopicMode]);
+    if (!composer.isTopicMode) return;
+    setTtlFocused(false);
+  }, [composer.isTopicMode]);
 
   useEffect(() => {
     if (!ttlDisabled) return;
@@ -206,6 +204,32 @@ export function CreatePanel(props) {
 
   function setSelectedFile(file) {
     composer.setFile(file);
+  }
+
+  function openNativePicker(input) {
+    if (!input) return;
+    input.focus();
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    }
+  }
+
+  function openCreatedPicker(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (createdTimeRef.current && createdTimeRef.current.contains?.(target)) {
+      openNativePicker(createdTimeRef.current);
+      return;
+    }
+    if (createdDateRef.current && createdDateRef.current.contains?.(target)) {
+      openNativePicker(createdDateRef.current);
+      return;
+    }
+    if (!composer.form.createdDate) {
+      openNativePicker(createdDateRef.current);
+      return;
+    }
+    openNativePicker(createdTimeRef.current || createdDateRef.current);
   }
 
   function clearSelectedFile() {
@@ -332,23 +356,29 @@ export function CreatePanel(props) {
                     value={composer.form.title}
                   />
                 </div>
-                <div className="composer-meta-field composer-meta-field-created">
+                <div
+                  className="composer-meta-field composer-meta-field-created"
+                  onClick={openCreatedPicker}
+                >
                   <span className="composer-meta-label">Created:</span>
-                  <div className="composer-created-inputs">
+                  <div className={`composer-created-inputs ${composer.form.createdDate ? '' : 'composer-created-inputs-empty'}`}>
                     <input
                       className="input input-ghost composer-created-input composer-created-date"
+                      ref={createdDateRef}
                       onChange={(event) => composer.updateCreatedDate(event.target.value)}
                       type="date"
                       value={composer.form.createdDate}
                     />
-                    <input
-                      className="input input-ghost composer-created-input composer-created-time"
-                      disabled={!composer.form.createdDate}
-                      onChange={(event) => composer.updateCreatedTime(event.target.value)}
-                      step={60}
-                      type="time"
-                      value={composer.form.createdTime}
-                    />
+                    {composer.form.createdDate ? (
+                      <input
+                        className="input input-ghost composer-created-input composer-created-time"
+                        ref={createdTimeRef}
+                        onChange={(event) => composer.updateCreatedTime(event.target.value)}
+                        step={60}
+                        type="time"
+                        value={composer.form.createdTime}
+                      />
+                    ) : null}
                   </div>
                 </div>
               </>
@@ -360,8 +390,6 @@ export function CreatePanel(props) {
                 className={`btn btn-ghost btn-xs composer-meta-icon ${metaVisible ? 'composer-meta-icon-open' : ''}`}
                 onClick={() => {
                   if (metaVisible) {
-                    composer.updateTitle('');
-                    composer.updateCreatedDate('');
                     setMetaOpen(false);
                     return;
                   }

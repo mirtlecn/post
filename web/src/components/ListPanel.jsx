@@ -12,6 +12,22 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
   const safe = useMemo(() => Math.min(page, pages), [page, pages]);
   const actionTooltip = isMobile ? 'left' : 'top';
 
+  function getTypeMeta(type) {
+    switch (type) {
+      case 'file':
+        return { icon: icons.fileBadge, label: 'file' };
+      case 'html':
+        return { icon: icons.fileCode, label: 'html' };
+      case 'topic':
+        return { icon: icons.folderTree, label: 'topic' };
+      case 'url':
+        return { icon: icons.link, label: 'url' };
+      case 'text':
+      default:
+        return { icon: icons.text, label: type || 'text' };
+    }
+  }
+
   function ttlLabel(ttl) {
     if (ttl == null) return 'never';
     if (typeof ttl !== 'number' || Number.isNaN(ttl) || ttl <= 0) return 'never';
@@ -20,8 +36,27 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
     return `${Math.round(ttl / 1440)}d`;
   }
 
+  function formatCreated(created) {
+    if (!created) return '';
+    if (created === 'illegal') return created;
+    const date = new Date(created);
+    if (Number.isNaN(date.getTime())) return created;
+
+    const year = String(date.getFullYear());
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  }
+
   const rows = useMemo(
-    () => items.slice((safe - 1) * PAGE_SIZE, safe * PAGE_SIZE).map((item) => ({ ...item, ttlText: ttlLabel(item.ttl) })),
+    () => items.slice((safe - 1) * PAGE_SIZE, safe * PAGE_SIZE).map((item) => ({
+      ...item,
+      createdText: formatCreated(item.created),
+      ttlText: ttlLabel(item.ttl),
+    })),
     [items, safe],
   );
 
@@ -95,44 +130,60 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
     if (ok) setCopiedPath(path);
   }
 
+  const tableClassName = isMobile ? 'table table-zebra w-full' : 'table table-zebra table-fixed w-full';
+  const pathColumnClassName = isMobile ? 'w-[10rem] max-w-[10rem]' : 'w-[18rem] max-w-[18rem]';
+  const metaColumnClassName = isMobile ? 'w-[8.5rem] max-w-[8.5rem]' : 'w-[12rem] max-w-[12rem]';
+  const actionColumnClassName = isMobile ? 'w-[8rem] text-right' : 'w-[11rem] text-right';
+  const previewColumnClassName = isMobile ? 'min-w-[8rem] max-w-[10rem] truncate text-base-content/62' : 'max-w-md truncate text-base-content/62';
+
   return (
     <section className="panel-box">
       <div className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">Links</div>
       <div className="list-scroll max-h-[30rem] overflow-auto rounded-[1.5rem] border border-base-300/70">
-        <table className="table table-zebra table-fixed w-full">
+        <table className={tableClassName}>
           <thead>
             <tr>
-              <th className="w-[12rem]">Path</th>
-              <th className="w-[8rem]">Type</th>
-              <th className="w-[8rem]">TTL</th>
-              <th className="w-[14rem]">Created</th>
+              <th className={pathColumnClassName}>Path</th>
+              <th className={metaColumnClassName}>Meta</th>
               <th>Preview</th>
-              <th className="w-[14rem] text-right">Actions</th>
+              <th className={actionColumnClassName}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((item) => (
               <tr key={item.path}>
-                <td className="w-[12rem] max-w-[12rem]">
+                {(() => {
+                  const typeMeta = getTypeMeta(item.type);
+                  const TypeIcon = typeMeta.icon;
+                  return (
+                    <>
+                <td className={pathColumnClassName}>
                   <span className="block truncate font-medium" title={item.path}>{item.path}</span>
                   {item.title ? (
-                    <span className="mt-1 block truncate text-xs text-base-content/55" title={item.title}>
-                      {item.title}
+                    <span className="mt-1 flex items-center gap-1.5 truncate text-xs text-base-content/55" title={`${item.title} · ${typeMeta.label}`}>
+                      <TypeIcon className="size-3 shrink-0 opacity-55" strokeWidth={2} />
+                      <span className="truncate">{item.title}</span>
+                      <span className="shrink-0 text-base-content/38">·</span>
+                      <span className="shrink-0 lowercase text-base-content/42">{typeMeta.label}</span>
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="mt-1 flex items-center gap-1.5 truncate text-xs text-base-content/42 lowercase" title={typeMeta.label}>
+                      <TypeIcon className="size-3 shrink-0 opacity-55" strokeWidth={2} />
+                      <span className="truncate">{typeMeta.label}</span>
+                    </span>
+                  )}
                 </td>
-                <td className="w-[8rem] max-w-[8rem]">
-                  <span className="block truncate" title={item.type}>{item.type}</span>
+                <td className={metaColumnClassName}>
+                  <span className="block truncate text-sm text-base-content/72" title={item.created || ''}>
+                    {item.createdText || 'unknown'}
+                  </span>
+                  <span className="mt-1 block truncate text-xs text-base-content/42" title={item.ttlText}>
+                    {item.ttlText === 'never' ? 'never expires' : `TTL ${item.ttlText}`}
+                  </span>
                 </td>
-                <td className="w-[8rem] max-w-[8rem] whitespace-nowrap text-base-content/65">
-                  <span className="block truncate" title={item.ttlText}>{item.ttlText}</span>
-                </td>
-                <td className="w-[14rem] max-w-[14rem] whitespace-nowrap text-sm text-base-content/65">
-                  <span className="block truncate" title={item.created || ''}>{item.created || ''}</span>
-                </td>
-                <td className="max-w-md truncate" title={item.content}>{item.content}</td>
+                <td className={previewColumnClassName} title={item.content}>{item.content}</td>
                 <td className="overflow-visible">
-                  <div className="flex justify-end gap-2 overflow-visible">
+                  <div className="flex justify-end gap-1.5 overflow-visible">
                     <IconButton icon={icons.open} onClick={() => { setConfirmPath(''); window.open(item.surl, '_blank', 'noreferrer'); }} title="Open" tooltip={actionTooltip} />
                     <IconButton
                       className={copiedPath === item.path ? 'text-success' : ''}
@@ -157,6 +208,9 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
                     )}
                   </div>
                 </td>
+                    </>
+                  );
+                })()}
               </tr>
             ))}
           </tbody>
