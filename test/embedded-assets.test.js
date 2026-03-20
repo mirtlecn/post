@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import { handlePublicGet } from '../lib/handlers/public-get.js';
 import { handleCreate } from '../lib/handlers/create.js';
 import { handleDelete } from '../lib/handlers/remove.js';
+import { handleEmbeddedAssetRequest, isReservedAssetPath } from '../lib/assets/http.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
 function createJsonRequest(method, body) {
@@ -93,4 +94,24 @@ test('handleDelete rejects reserved embedded asset path', async () => {
 
   assert.equal(response.statusCode, 400);
   assert.match(response.body, /reserved for built-in assets/);
+});
+
+test('reserved embedded asset checks only block exact manifest asset routes', async () => {
+  assert.equal(isReservedAssetPath('asset/md-base-7f7c1c5a.css'), true);
+  assert.equal(isReservedAssetPath('asset/md-base-7f7c1c5a.css/extra'), false);
+  assert.equal(isReservedAssetPath('asert/md-base-7f7c1c5a.css'), false);
+
+  const response = createMockResponse();
+  const handled = handleEmbeddedAssetRequest(
+    createMockRequest({
+      method: 'GET',
+      url: '/asert/md-base-7f7c1c5a.css',
+      headers: { host: 'example.com' },
+    }),
+    response,
+    new URL('http://example.com/asert/md-base-7f7c1c5a.css'),
+  );
+
+  assert.equal(handled, false);
+  assert.equal(response.ended, false);
 });
