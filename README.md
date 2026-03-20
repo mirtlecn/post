@@ -18,6 +18,8 @@ Write operations require the header `Authorization: Bearer <SECRET_KEY>`.
 Write requests may include an optional `created` string. Accepted input formats are `RFC3339`, `RFC3339Nano`, `YYYY-MM-DD HH:MM:SS`, and date-only `YYYY-MM-DD`, `YYYY.MM.DD`, `YYYY/MM/DD`. Values without a timezone are parsed as `Asia/Shanghai`, then stored and returned as UTC `RFC3339`.
 `type: "topic"` accepts an optional `title`. Topic displays use that `title` when present, otherwise they fall back to the topic path.
 Multipart file uploads keep an explicit part `Content-Type` when it is specific. Empty or generic binary values are normalized server-side from the filename extension or file signature before the object is stored.
+Markdown writes accept `type: "md"` and the legacy alias `type: "md2html"` / `convert: "md2html"`. Both store the original Markdown source as `type: "md"`. Public reads render that source to HTML at request time, while authenticated list / lookup / export responses return the stored Markdown source.
+QRCode writes accept `type: "qrcode"` / `convert: "qrcode"`. The original input text is stored as `type: "qrcode"`. Public reads render the QR text at request time, while authenticated list / lookup / export responses return the stored source text.
 
 Suggested shell variables:
 

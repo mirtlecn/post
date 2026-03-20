@@ -529,6 +529,13 @@ MAILTO_URL_PATH="$(uniq_path mailto-url)"
 INVALID_URL_PATH="$(uniq_path invalid-url)"
 TEXT_PATH="$(uniq_path text)"
 HTML_PATH="$(uniq_path html)"
+MD_ALIAS_PATH="$(uniq_path md)"
+QRCODE_PATH="$(uniq_path qr)"
+TOPIC_RENDER_PATH="$(uniq_path render-topic)"
+TOPIC_MD_CHILD="entry-md"
+TOPIC_MD_PATH="$TOPIC_RENDER_PATH/$TOPIC_MD_CHILD"
+TOPIC_QR_CHILD="entry-qr"
+TOPIC_QR_PATH="$TOPIC_RENDER_PATH/$TOPIC_QR_CHILD"
 
 CURRENT_STEP="公开跳转通过"
 request POST "$BASE_URL" "{\"path\":\"$REDIRECT_PATH\",\"url\":\"https://example.com/public\"}" \
@@ -594,5 +601,100 @@ expect_status 200
 expect_header_contains '^content-type: text/html'
 expect_body_contains '<h1>hello</h1>'
 log "公开 html 展示通过"
+
+CURRENT_STEP="Markdown alias 按原文入库并公开渲染"
+request POST "$BASE_URL/api/admin" "{\"path\":\"$MD_ALIAS_PATH\",\"url\":\"# Hello\\n\\nBody line\",\"type\":\"md2html\",\"title\":\"Markdown Alias\"}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json"
+expect_status 201
+expect_body_contains "\"path\":\"$MD_ALIAS_PATH\""
+expect_body_contains "\"type\":\"md\""
+add_created_path "$MD_ALIAS_PATH"
+request GET "$BASE_URL/api/admin" "{\"path\":\"$MD_ALIAS_PATH\"}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "\"type\":\"md\""
+expect_body_contains '# Hello'
+request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+expect_status 200
+expect_body_matches "\"path\":\"$MD_ALIAS_PATH\"[^\n]*\"type\":\"md\""
+request GET "$BASE_URL/api/admin" "{\"path\":\"$MD_ALIAS_PATH\"}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "x-export: true"
+expect_status 200
+expect_body_contains "\"type\":\"md\""
+expect_body_contains 'Body line'
+request GET "$BASE_URL/$MD_ALIAS_PATH" ""
+expect_status 200
+expect_header_contains '^content-type: text/html'
+expect_body_contains '<title>Markdown Alias</title>'
+expect_body_contains '<h1 id="hello">Hello</h1>'
+log "Markdown alias 通过"
+
+CURRENT_STEP="QRCode 按原文入库并公开渲染"
+request POST "$BASE_URL/api/admin" "{\"path\":\"$QRCODE_PATH\",\"url\":\"https://example.com/qr-source\",\"type\":\"qrcode\",\"title\":\"QRCode Entry\"}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json"
+expect_status 201
+expect_body_contains "\"path\":\"$QRCODE_PATH\""
+expect_body_contains "\"type\":\"qrcode\""
+add_created_path "$QRCODE_PATH"
+request GET "$BASE_URL/api/admin" "{\"path\":\"$QRCODE_PATH\"}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "\"type\":\"qrcode\""
+expect_body_contains 'https://example...'
+request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+expect_status 200
+expect_body_matches "\"path\":\"$QRCODE_PATH\"[^\n]*\"type\":\"qrcode\""
+request GET "$BASE_URL/api/admin" "{\"path\":\"$QRCODE_PATH\"}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "x-export: true"
+expect_status 200
+expect_body_contains "\"type\":\"qrcode\""
+expect_body_contains 'https://example.com/qr-source'
+request GET "$BASE_URL/$QRCODE_PATH" ""
+expect_status 200
+expect_header_contains '^content-type: text/plain'
+expect_body_contains 'Scan this QR code'
+log "QRCode 通过"
+
+CURRENT_STEP="topic 子项保留真实类型并公开渲染"
+request POST "$BASE_URL" "{\"path\":\"$TOPIC_RENDER_PATH\",\"type\":\"topic\",\"title\":\"Render Topic\"}" \
+  -H "$AUTH_HEADER" \
+  -H "Content-Type: application/json"
+expect_status 201
+add_created_topic "$TOPIC_RENDER_PATH"
+request POST "$BASE_URL/api/admin" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_MD_CHILD\",\"url\":\"# Topic Markdown\",\"type\":\"md2html\",\"title\":\"Topic Markdown\"}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json"
+expect_status 201
+expect_body_contains "\"path\":\"$TOPIC_MD_PATH\""
+expect_body_contains "\"type\":\"md\""
+add_created_path "$TOPIC_MD_PATH"
+request POST "$BASE_URL/api/admin" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_QR_CHILD\",\"url\":\"https://example.com/topic-qr\",\"type\":\"qrcode\",\"title\":\"Topic QR\"}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json"
+expect_status 201
+expect_body_contains "\"path\":\"$TOPIC_QR_PATH\""
+expect_body_contains "\"type\":\"qrcode\""
+add_created_path "$TOPIC_QR_PATH"
+request GET "$BASE_URL/$TOPIC_RENDER_PATH" ""
+expect_status 200
+expect_header_contains '^content-type: text/html'
+expect_body_contains 'Topic Markdown'
+expect_body_contains 'Topic QR'
+expect_body_contains 'Topic QR</a> ☰'
+expect_body_not_contains 'Topic Markdown</a> ☰'
+request GET "$BASE_URL/$TOPIC_MD_PATH" ""
+expect_status 200
+expect_header_contains '^content-type: text/html'
+expect_body_contains "href=\"/$TOPIC_RENDER_PATH\""
+expect_body_contains '<strong>Home</strong>'
+log "topic 子项渲染通过"
 
 log "全部功能测试通过"
