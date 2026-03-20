@@ -48,6 +48,8 @@ test('parseStoredValue rejects non-JSON stored values', () => {
 test('previewContent keeps url intact and truncates text', () => {
   assert.equal(previewContent('url', 'https://example.com/path'), 'https://example.com/path');
   assert.equal(previewContent('text', '1234567890123456'), '123456789012345...');
+  assert.equal(previewContent('md', '# 1234567890123456'), '# 1234567890123...');
+  assert.equal(previewContent('qrcode', '1234567890123456'), '123456789012345...');
 });
 
 test('parseRequestBody rejects invalid json', async () => {

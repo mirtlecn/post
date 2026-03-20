@@ -12,8 +12,9 @@ import {
   parseTtlMinutes,
   detectContentType,
   normalizeUrlContent,
-  applyContentConversion,
   buildCreatedEntryPayload,
+  normalizeStoredTypeAlias,
+  normalizeWriteType,
   writeStoredLink,
 } from '../lib/services/link-entry.js';
 
@@ -114,41 +115,20 @@ test('normalizeUrlContent trims valid scheme urls and rejects invalid ones', () 
   );
 });
 
-test('applyContentConversion supports convert branches and failure path', async () => {
-  const convertedMarkdown = await applyContentConversion({
-    inputContent: '# Title',
-    inputType: 'text',
-    convert: 'md2html',
-    convertMarkdownToHtml: (markdown) => `<html>${markdown}</html>`,
-    convertToQrCode: async () => 'unused',
-  });
-  assert.deepEqual(convertedMarkdown, {
-    content: '<html># Title</html>',
-    type: 'html',
-  });
+test('normalizeStoredTypeAlias maps md2html to md', () => {
+  assert.equal(normalizeStoredTypeAlias('md2html'), 'md');
+  assert.equal(normalizeStoredTypeAlias('md'), 'md');
+  assert.equal(normalizeStoredTypeAlias('qrcode'), 'qrcode');
+});
 
-  const convertedQr = await applyContentConversion({
-    inputContent: 'hello',
-    inputType: 'text',
-    convert: 'qrcode',
-    convertMarkdownToHtml: (markdown) => markdown,
-    convertToQrCode: async (content) => `qr:${content}`,
-  });
-  assert.deepEqual(convertedQr, {
-    content: 'qr:hello',
-    type: 'text',
-  });
-
-  await assert.rejects(
-    applyContentConversion({
-      inputContent: 'hello',
-      inputType: 'text',
-      convert: 'bad',
-      convertMarkdownToHtml: (markdown) => markdown,
-      convertToQrCode: async (content) => content,
-    }),
-    /Invalid convert value: bad/,
-  );
+test('normalizeWriteType accepts md aliases and rejects mismatched type/convert', () => {
+  assert.equal(normalizeWriteType('md2html', undefined), 'md');
+  assert.equal(normalizeWriteType('md', undefined), 'md');
+  assert.equal(normalizeWriteType(undefined, 'md2html'), 'md');
+  assert.equal(normalizeWriteType('md', 'md2html'), 'md');
+  assert.equal(normalizeWriteType('qrcode', undefined), 'qrcode');
+  assert.equal(normalizeWriteType(undefined, 'qrcode'), 'qrcode');
+  assert.throws(() => normalizeWriteType('text', 'qrcode'), /`type` and `convert` must match/);
 });
 
 test('writeStoredLink covers create, overwrite, and ttl fallback', async () => {

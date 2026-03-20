@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { handleCreate } from '../lib/handlers/create.js';
+import { handleCreate, validateInputType, normalizeWriteType } from '../lib/handlers/create.js';
 
 function createJsonRequest(body) {
   const request = new EventEmitter();
@@ -80,4 +80,15 @@ test('handleCreate rejects invalid created before touching redis', async () => {
 
   assert.equal(response.statusCode, 400);
   assert.match(response.body, /`created` must be a valid/);
+});
+
+test('validateInputType accepts md and qrcode as stored types', () => {
+  assert.equal(validateInputType('md'), null);
+  assert.equal(validateInputType('qrcode'), null);
+});
+
+test('normalizeWriteType converts md2html requests into md', () => {
+  assert.equal(normalizeWriteType('md2html', undefined), 'md');
+  assert.equal(normalizeWriteType('md', 'md2html'), 'md');
+  assert.equal(normalizeWriteType(undefined, 'qrcode'), 'qrcode');
 });

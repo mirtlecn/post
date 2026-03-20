@@ -66,6 +66,26 @@ test('buildTopicIndexMarkdown uses full path fallback and type marks', () => {
   assert.match(markdown, /\[notes\/howl-visual]\(<\/anime\/notes\/howl-visual>\) ↗ · 2026-12-19/);
 });
 
+test('buildTopicIndexMarkdown keeps md unmarked and qrcode as text-like mark', () => {
+  const markdown = buildTopicIndexMarkdown('anime', 'Anime', [
+    {
+      path: 'entry-md',
+      type: 'md',
+      title: 'Markdown Entry',
+      updatedAt: Date.UTC(2026, 11, 19, 10, 0, 0) / 1000,
+    },
+    {
+      path: 'entry-qr',
+      type: 'qrcode',
+      title: 'QRCode Entry',
+      updatedAt: Date.UTC(2026, 11, 18, 10, 0, 0) / 1000,
+    },
+  ]);
+
+  assert.match(markdown, /\[Markdown Entry]\(<\/anime\/entry-md>\) · 2026-12-19/);
+  assert.match(markdown, /\[QRCode Entry]\(<\/anime\/entry-qr>\) ☰ · 2026-12-18/);
+});
+
 test('buildTopicIndexMarkdown wraps hrefs so parentheses in paths stay unambiguous', () => {
   const markdown = buildTopicIndexMarkdown('anime(list)', 'anime(list)', [
     {
