@@ -22,6 +22,8 @@ Topic counts and topic page rendering are based on the maintained topic index, n
 Multipart file uploads keep an explicit part `Content-Type` when it is specific. Empty or generic binary values are normalized server-side from the filename extension or file signature before the object is stored.
 Markdown writes accept `type: "md"` and the legacy alias `type: "md2html"` / `convert: "md2html"`. Both store the original Markdown source as `type: "md"`. Public reads render that source to HTML at request time, while authenticated list / lookup / export responses return the stored Markdown source.
 QRCode writes accept `type: "qrcode"` / `convert: "qrcode"`. The original input text is stored as `type: "qrcode"`. Public reads render the QR text at request time, while authenticated list / lookup / export responses return the stored source text.
+Authenticated `GET` lookups support a single trailing wildcard in `path`, for example `{"path":"note*"}` returns an array of all non-topic entries whose paths start with `note`. `{"path":"topic*","type":"topic"}` returns only matching topic homes.
+Authenticated `DELETE` requests also support the same trailing wildcard. Wildcard deletes return a summary object with `deleted` and `errors`, continue after per-item failures, and `type: "topic"` wildcard deletes still remove only topic homes and topic indexes, not topic child entries.
 
 Suggested shell variables:
 

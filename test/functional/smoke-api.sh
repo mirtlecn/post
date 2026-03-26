@@ -60,6 +60,15 @@ READ_TOPIC_PATH="read-topic-$(date +%s)-$$"
 READ_TOPIC_ITEM_PATH="$READ_TOPIC_PATH/entry"
 GHOST_TOPIC_PATH="ghost-topic-$(date +%s)-$$"
 ILLEGAL_CREATED_PATH="illegal-created-$(date +%s)-$$"
+WILDCARD_PREFIX="wild-read-$(date +%s)-$$"
+WILDCARD_TEXT_ONE_PATH="$WILDCARD_PREFIX-one"
+WILDCARD_TEXT_TWO_PATH="$WILDCARD_PREFIX-two"
+WILDCARD_SKIP_PATH="$WILDCARD_PREFIX-topic-home"
+WILDCARD_TOPIC_PREFIX="wild-topic-$(date +%s)-$$"
+WILDCARD_TOPIC_ONE_PATH="$WILDCARD_TOPIC_PREFIX-one"
+WILDCARD_TOPIC_TWO_PATH="$WILDCARD_TOPIC_PREFIX-two"
+WILDCARD_TOPIC_CHILD_ONE_PATH="$WILDCARD_TOPIC_ONE_PATH/entry"
+WILDCARD_TOPIC_CHILD_TWO_PATH="$WILDCARD_TOPIC_TWO_PATH/entry"
 
 CREATED_SORT_TOPIC_PATH="created-sort-topic-$(date +%s)-$$"
 CREATED_SORT_OLD_PATH="$CREATED_SORT_TOPIC_PATH/old"
@@ -92,6 +101,11 @@ cleanup() {
     "$READ_URL_PATH" \
     "$READ_HTML_PATH" \
     "$READ_TOPIC_ITEM_PATH" \
+    "$WILDCARD_TEXT_ONE_PATH" \
+    "$WILDCARD_TEXT_TWO_PATH" \
+    "$WILDCARD_SKIP_PATH" \
+    "$WILDCARD_TOPIC_CHILD_ONE_PATH" \
+    "$WILDCARD_TOPIC_CHILD_TWO_PATH" \
     "$ILLEGAL_CREATED_PATH" \
     "$CREATED_SORT_OLD_PATH" \
     "$CREATED_SORT_NEW_PATH" \
@@ -128,6 +142,8 @@ cleanup() {
     "$STORAGE_TOPIC_PATH" \
     "$RENDER_TOPIC_PATH" \
     "$READ_TOPIC_PATH" \
+    "$WILDCARD_TOPIC_ONE_PATH" \
+    "$WILDCARD_TOPIC_TWO_PATH" \
     "$CREATED_SORT_TOPIC_PATH" \
     "$TTL_TOPIC_PATH"
   do
@@ -789,6 +805,120 @@ expect_body_contains "\"created\":\"2026-03-18T16:00:00Z\""
 expect_body_contains "\"created\":\"2026-03-19T16:00:00Z\""
 expect_body_contains "\"content\":\"1\""
 log "GET body 全量列表通过"
+
+CURRENT_STEP="创建 wildcard lookup/delete 资源"
+request POST "$BASE_URL" "{\"path\":\"$WILDCARD_TEXT_ONE_PATH\",\"url\":\"wild body one\",\"type\":\"text\",\"title\":\"Wild One\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL" "{\"path\":\"$WILDCARD_TEXT_TWO_PATH\",\"url\":\"wild body two is longer than preview\",\"type\":\"text\",\"title\":\"Wild Two\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL" "{\"path\":\"$WILDCARD_SKIP_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic Skip\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_ONE_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic One\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_TWO_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic Two\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL" "{\"topic\":\"$WILDCARD_TOPIC_ONE_PATH\",\"path\":\"entry\",\"url\":\"wild topic child one\",\"type\":\"text\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL" "{\"topic\":\"$WILDCARD_TOPIC_TWO_PATH\",\"path\":\"entry\",\"url\":\"wild topic child two\",\"type\":\"text\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+log "wildcard lookup/delete 资源创建通过"
+
+CURRENT_STEP="GET body 普通 wildcard lookup"
+request GET "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "\"path\":\"$WILDCARD_TEXT_ONE_PATH\""
+expect_body_contains "\"path\":\"$WILDCARD_TEXT_TWO_PATH\""
+expect_body_not_contains "\"path\":\"$WILDCARD_SKIP_PATH\""
+expect_body_matches "^\\["
+log "普通 wildcard lookup 通过"
+
+CURRENT_STEP="GET body topic wildcard lookup"
+request GET "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "\"path\":\"$WILDCARD_TOPIC_ONE_PATH\""
+expect_body_contains "\"path\":\"$WILDCARD_TOPIC_TWO_PATH\""
+expect_body_not_contains "\"path\":\"$WILDCARD_TOPIC_CHILD_ONE_PATH\""
+expect_body_not_contains "\"path\":\"$WILDCARD_TOPIC_CHILD_TWO_PATH\""
+log "topic wildcard lookup 通过"
+
+CURRENT_STEP="x-export 普通 wildcard lookup 返回全文"
+request GET "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -H "x-export: true"
+expect_status 200
+expect_body_contains "\"content\":\"wild body one\""
+expect_body_contains "\"content\":\"wild body two is longer than preview\""
+log "x-export 普通 wildcard lookup 通过"
+
+CURRENT_STEP="wildcard path 只支持末尾单个星号"
+request GET "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*bad\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 400
+expect_body_contains "\"error\":\"\`path\` wildcard only supports a single trailing \\\"*\\\"\""
+log "wildcard path 校验通过"
+
+CURRENT_STEP="DELETE 普通 wildcard 删除返回汇总"
+request DELETE "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "\"deleted\":["
+expect_body_contains "\"deleted\":\"$WILDCARD_TEXT_ONE_PATH\""
+expect_body_contains "\"deleted\":\"$WILDCARD_TEXT_TWO_PATH\""
+expect_body_contains "\"errors\":[]"
+request GET "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "[]"
+request GET "$BASE_URL" "{\"path\":\"$WILDCARD_SKIP_PATH\",\"type\":\"topic\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "\"path\":\"$WILDCARD_SKIP_PATH\""
+log "普通 wildcard 删除通过"
+
+CURRENT_STEP="DELETE topic wildcard 删除仅删 topic home"
+request DELETE "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "\"deleted\":["
+expect_body_contains "\"deleted\":\"$WILDCARD_TOPIC_ONE_PATH\""
+expect_body_contains "\"deleted\":\"$WILDCARD_TOPIC_TWO_PATH\""
+expect_body_contains "\"errors\":[]"
+request GET "$BASE_URL/$WILDCARD_TOPIC_CHILD_ONE_PATH"
+expect_status 200
+expect_body_contains "wild topic child one"
+request GET "$BASE_URL/$WILDCARD_TOPIC_CHILD_TWO_PATH"
+expect_status 200
+expect_body_contains "wild topic child two"
+request GET "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 200
+expect_body_contains "[]"
+log "topic wildcard 删除通过"
 
 CURRENT_STEP="旧数据非法 created 读取返回 illegal"
 redis-cli -n "$REDIS_DB" SET "surl:$ILLEGAL_CREATED_PATH" '{"type":"text","content":"legacy body","title":"Legacy","created":"bad-value"}' >/dev/null
