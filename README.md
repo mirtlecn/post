@@ -13,18 +13,6 @@ The composer supports optional meta fields for `title` and `created`. `created` 
 
 ## HTTP API
 
-Write operations require the header `Authorization: Bearer <SECRET_KEY>`.
-`ttl` values are optional, use minutes, and must be between `0` and `525600` (`365` days). `0` means no expiration.
-Write requests may include an optional `created` string. Accepted input formats are `RFC3339`, `RFC3339Nano`, `YYYY-MM-DD HH:MM:SS`, and date-only `YYYY-MM-DD`, `YYYY.MM.DD`, `YYYY/MM/DD`. Values without a timezone are parsed as `Asia/Shanghai`, then stored and returned as UTC `RFC3339`.
-`type: "topic"` accepts an optional `title`. Topic displays use that `title` when present, otherwise they fall back to the topic path.
-Deleting a topic with `type: "topic"` removes only the topic home entry and its index. Existing topic child entries are intentionally kept in storage.
-Topic counts and topic page rendering are based on the maintained topic index, not on a recursive live scan at read time.
-Multipart file uploads keep an explicit part `Content-Type` when it is specific. Empty or generic binary values are normalized server-side from the filename extension or file signature before the object is stored.
-Markdown writes accept `type: "md"` and the legacy alias `type: "md2html"` / `convert: "md2html"`. Both store the original Markdown source as `type: "md"`. Public reads render that source to HTML at request time, while authenticated list / lookup / export responses return the stored Markdown source.
-QRCode writes accept `type: "qrcode"` / `convert: "qrcode"`. The original input text is stored as `type: "qrcode"`. Public reads render the QR text at request time, while authenticated list / lookup / export responses return the stored source text.
-Authenticated `GET` lookups support a single trailing wildcard in `path`, for example `{"path":"note*"}` returns an array of all non-topic entries whose paths start with `note`. `{"path":"topic*","type":"topic"}` returns only matching topic homes.
-Authenticated `DELETE` requests also support the same trailing wildcard. Wildcard deletes return a summary object with `deleted` and `errors`, continue after per-item failures, and `type: "topic"` wildcard deletes still remove only topic homes and topic indexes, not topic child entries.
-
 Suggested shell variables:
 
 ```bash
