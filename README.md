@@ -6,8 +6,7 @@
 
 ## Web UI
 
-Available at <http://localhost:3000/admin>. Password is `SECRET_KEY` or `ADMIN_KEY` if set.
-The composer supports optional meta fields for `title` and `created`. `created` can be submitted as date-only or date with time.
+Available at <http://localhost:3000/admin>.
 
 ![Web UI Screenshot](gui.webp)
 
@@ -37,7 +36,7 @@ Required:
 - `SECRET_KEY` : API token
 - `ADMIN_KEY` : Password for admin GUI login
 
-### Local
+### Run
 
 Prerequisites:
 - Node.js 24+
@@ -45,54 +44,10 @@ Prerequisites:
 - S3-compatible storage (Required for file uploads)
 
 ```bash
-# Install dependencies
 npm install
-
-# Run the default local regression suite: unit + both local smoke suites
-npm test
-
-# Run only the quick unit suite
-npm run test:quick
-
-# Run only unit tests
-npm run test:unit
-
-# Run both local smoke suites without re-running unit tests
-npm run test:smoke:local
-
-# Run only the local admin/web smoke suite
-npm run test:smoke:web:local
-
-# Run only the local API smoke suite
-npm run test:smoke:api:local
-
-# Configure environment variables
 cp .env.example .env.local
-
-# Build admin UI and start local server (http://localhost:3000)
 npm start
-
-# Bump the package version
-npm run version:bump -- patch
-# or
-npm run version:bump -- 1.4.0
-
-# Create a release tag after the version bump commit
-git tag -a v1.4.0 -m "v1.4.0"
-
-# Visit admin UI at <http://localhost:3000/admin>
 ```
-
-Env:
-- Required: `LINKS_REDIS_URL`, `SECRET_KEY`
-- Optional: `ADMIN_KEY` (only for `/admin` GUI login; if missing, GUI login falls back to `SECRET_KEY`)
-- `LINKS_REDIS_URL` should use:
-  - `rediss://...` for TLS-enabled providers (recommended for Upstash and other managed Redis)
-  - `redis://...` only for non-TLS Redis
-- If you see socket-closed errors when using `redis://`, switch to `rediss://`
-- Optional: `MAX_CONTENT_SIZE_KB` (default 500), `MAX_FILE_SIZE_MB` (default 10), `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`, `S3_REGION`, `S3_FORCE_PATH_STYLE`
-- `S3_FORCE_PATH_STYLE` defaults to `true` when `S3_ENDPOINT` is set. Set it to `false` only if your provider requires bucket subdomains instead of path-style requests.
-
 
 ## Testing
 
@@ -107,5 +62,3 @@ Env:
 ## Credits
 
 MIT Licence
-
-© Mirtle together with OpenAI Codex
