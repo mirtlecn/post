@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { handlePublicGet } from '../lib/handlers/public-get.js';
 import { handleCreate } from '../lib/handlers/create.js';
 import { handleDelete } from '../lib/handlers/remove.js';
 import { handleEmbeddedAssetRequest, isReservedAssetPath } from '../lib/assets/http.js';
+import { resolveEmbeddedAssetPaths } from '../lib/assets/index.js';
+import { embeddedAssets } from '../lib/assets/embedded-data.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
 function createJsonRequest(method, body) {
@@ -114,4 +119,42 @@ test('reserved embedded asset checks only block exact manifest asset routes', as
 
   assert.equal(handled, false);
   assert.equal(response.ended, false);
+});
+
+test('embedded asset path resolver supports EdgeOne flattened module output', async () => {
+  const rootDirectory = await mkdtemp(join(tmpdir(), 'post-edgeone-assets-'));
+  const assetDirectory = join(rootDirectory, 'lib', 'assets');
+  const filesDirectory = join(assetDirectory, 'files');
+  await mkdir(filesDirectory, { recursive: true });
+  await writeFile(join(assetDirectory, 'manifest.json'), '[]');
+
+  const resolved = resolveEmbeddedAssetPaths({
+    moduleDirectory: rootDirectory,
+    cwd: rootDirectory,
+  });
+
+  assert.equal(resolved.manifestPath, join(assetDirectory, 'manifest.json'));
+  assert.equal(resolved.filesDirectory, filesDirectory);
+});
+
+test('generated embedded asset data matches manifest files', async () => {
+  const assetsRootUrl = new URL('../lib/assets/', import.meta.url);
+  const manifest = JSON.parse(await readFile(new URL('manifest.json', assetsRootUrl), 'utf8'));
+  assert.equal(embeddedAssets.length, manifest.length);
+
+  for (const asset of embeddedAssets) {
+    const manifestEntry = manifest.find((entry) => entry.key === asset.key);
+    assert.ok(manifestEntry, `missing manifest entry for ${asset.key}`);
+    assert.equal(asset.route_path, manifestEntry.route_path);
+    assert.equal(asset.file_name, manifestEntry.file_name);
+    assert.equal(asset.content_type, manifestEntry.content_type);
+    assert.equal(asset.source_link, manifestEntry.source_link);
+
+    const fileContent = await readFile(new URL(`files/${asset.file_name}`, assetsRootUrl));
+    assert.equal(
+      Buffer.compare(Buffer.from(asset.content_base64, 'base64'), fileContent),
+      0,
+      `${asset.file_name} embedded content differs from source file`,
+    );
+  }
 });

@@ -119,9 +119,9 @@ CREATED_DATETIME_INPUT="2026-03-20 08:09:10"
 CREATED_DATETIME_EXPECTED="2026-03-20T00:09:10Z"
 
 CURRENT_STEP="环境可达"
-if [ "$MODE" = "vercel" ]; then
+if [ "$MODE" = "vercel" ] || [ "$MODE" = "edgeone" ]; then
   request GET "$BASE_URL/admin" ""
-  if [ "$LAST_STATUS" = "307" ]; then
+  if [ "$LAST_STATUS" = "307" ] || [ "$LAST_STATUS" = "302" ]; then
     expect_location "/admin/"
     request GET "$BASE_URL/admin/" ""
     expect_status 200

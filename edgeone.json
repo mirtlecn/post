@@ -1,0 +1,21 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": "public",
+  "nodeVersion": "24.5.0",
+  "redirects": [
+    {
+      "source": "/admin",
+      "destination": "/admin/",
+      "statusCode": 302
+    }
+  ],
+  "cloudFunctions": {
+    "nodejs": {
+      "includeFiles": [
+        "lib/assets/**"
+      ],
+      "maxDuration": 60
+    }
+  }
+}

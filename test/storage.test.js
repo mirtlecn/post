@@ -6,6 +6,8 @@ import {
   RequestBodyTooLargeError,
   buildCurrentCreatedValue,
   buildStoredValue,
+  getDomain,
+  normalizeBaseDomain,
   normalizeCreatedInput,
   parseStoredValue,
   previewContent,
@@ -53,6 +55,40 @@ test('previewContent keeps url intact and truncates text', () => {
   assert.equal(previewContent('text', '1234567890123456'), '123456789012345...');
   assert.equal(previewContent('md', '# 1234567890123456'), '# 1234567890123...');
   assert.equal(previewContent('qrcode', '1234567890123456'), '123456789012345...');
+});
+
+test('normalizeBaseDomain accepts host-like deployment config values', () => {
+  assert.equal(normalizeBaseDomain('example.com'), 'example.com');
+  assert.equal(normalizeBaseDomain('www.example.com/'), 'www.example.com');
+  assert.equal(normalizeBaseDomain('https://www.example.com/path?x=1'), 'www.example.com');
+  assert.equal(normalizeBaseDomain('http://example.com:8080/'), 'example.com:8080');
+  assert.equal(normalizeBaseDomain('//cdn.example.com/asset'), 'cdn.example.com');
+  assert.equal(normalizeBaseDomain(''), '');
+});
+
+test('getDomain uses BASE_DOMAIN when configured and falls back to request headers', () => {
+  const previousBaseDomain = process.env.BASE_DOMAIN;
+  const req = {
+    headers: {
+      host: 'internal.example',
+      'x-forwarded-host': 'forwarded.example',
+      'x-forwarded-proto': 'http',
+    },
+  };
+
+  try {
+    delete process.env.BASE_DOMAIN;
+    assert.equal(getDomain(req), 'http://forwarded.example');
+
+    process.env.BASE_DOMAIN = 'https://www.example.com/';
+    assert.equal(getDomain(req), 'https://www.example.com');
+  } finally {
+    if (previousBaseDomain === undefined) {
+      delete process.env.BASE_DOMAIN;
+    } else {
+      process.env.BASE_DOMAIN = previousBaseDomain;
+    }
+  }
 });
 
 test('parseRequestBody rejects invalid json', async () => {
