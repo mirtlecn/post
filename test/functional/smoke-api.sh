@@ -52,6 +52,8 @@ RENDER_UPDATED_HTML_ITEM_PATH="$RENDER_TOPIC_PATH/moving-castle"
 RENDER_URL_ITEM_PATH="$RENDER_TOPIC_PATH/notes/reference-link"
 RENDER_TEXT_ITEM_PATH="$RENDER_TOPIC_PATH/castle-notes"
 RENDER_AUTO_ITEM_GREP='\"surl\":\"http://localhost:[0-9]+/render-topic-[^\"]+/[a-z0-9]{5}\"'
+GROUPED_TOPIC_PATH="grouped-topic-$(date +%s)-$$"
+GROUPED_TOPIC_TITLE="Grouped Topic Archive"
 
 READ_TEXT_PATH="read-text-$(date +%s)-$$"
 READ_URL_PATH="read-url-$(date +%s)-$$"
@@ -98,6 +100,7 @@ cleanup() {
     "$RENDER_UPDATED_HTML_ITEM_PATH" \
     "$RENDER_URL_ITEM_PATH" \
     "$RENDER_TEXT_ITEM_PATH" \
+    "$GROUPED_TOPIC_PATH/*" \
     "$READ_TEXT_PATH" \
     "$READ_URL_PATH" \
     "$READ_HTML_PATH" \
@@ -142,6 +145,7 @@ cleanup() {
     "$CONTRACT_TOPIC_PATH" \
     "$STORAGE_TOPIC_PATH" \
     "$RENDER_TOPIC_PATH" \
+    "$GROUPED_TOPIC_PATH" \
     "$READ_TOPIC_PATH" \
     "$WILDCARD_TOPIC_ONE_PATH" \
     "$WILDCARD_TOPIC_TWO_PATH" \
@@ -698,6 +702,66 @@ expect_body_contains "↗ · $CURRENT_DATE"
 expect_body_contains " · $CURRENT_DATE"
 expect_body_not_contains "  · "
 log "render topic 首页渲染通过"
+
+CURRENT_STEP="跨年长 topic 首页按年份分组"
+request POST "$BASE_URL/create" "{\"path\":\"$GROUPED_TOPIC_PATH\",\"type\":\"topic\",\"title\":\"$GROUPED_TOPIC_TITLE\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"new-text\",\"url\":\"grouped text\",\"type\":\"text\",\"title\":\"Grouped Text\",\"created\":\"2026-05-23\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"new-md-1\",\"url\":\"# Grouped Markdown\",\"type\":\"md2html\",\"title\":\"Grouped Markdown\",\"created\":\"2026-05-22\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"new-md-2\",\"url\":\"# Grouped 2\",\"type\":\"md2html\",\"title\":\"Grouped 2\",\"created\":\"2026-05-21\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"new-md-3\",\"url\":\"# Grouped 3\",\"type\":\"md2html\",\"title\":\"Grouped 3\",\"created\":\"2026-05-20\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"new-md-4\",\"url\":\"# Grouped 4\",\"type\":\"md2html\",\"title\":\"Grouped 4\",\"created\":\"2026-05-19\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"new-md-5\",\"url\":\"# Grouped 5\",\"type\":\"md2html\",\"title\":\"Grouped 5\",\"created\":\"2026-05-18\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"old-md-1\",\"url\":\"# Old 1\",\"type\":\"md2html\",\"title\":\"Old 1\",\"created\":\"2025-12-31\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"old-md-2\",\"url\":\"# Old 2\",\"type\":\"md2html\",\"title\":\"Old 2\",\"created\":\"2025-12-30\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"old-md-3\",\"url\":\"# Old 3\",\"type\":\"md2html\",\"title\":\"Old 3\",\"created\":\"2025-12-29\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"old-md-4\",\"url\":\"# Old 4\",\"type\":\"md2html\",\"title\":\"Old 4\",\"created\":\"2025-12-28\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$GROUPED_TOPIC_PATH\",\"path\":\"old-md-5\",\"url\":\"# Old 5\",\"type\":\"md2html\",\"title\":\"Old 5\",\"created\":\"2025-12-27\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request GET "$BASE_URL/$GROUPED_TOPIC_PATH"
+expect_status 200
+expect_body_contains "<h2 id=\"2026\">2026</h2>"
+expect_body_contains "<h2 id=\"2025\">2025</h2>"
+expect_body_contains "href=\"/$GROUPED_TOPIC_PATH/new-text\""
+expect_body_contains "Grouped Text</a> ☰ · 05-23"
+expect_body_contains "Grouped Markdown</a> · 05-22"
+expect_body_contains "Old 1</a> · 12-31"
+expect_body_not_contains "Grouped Text</a> ☰ · 2026-05-23"
+log "跨年长 topic 首页按年份分组通过"
 
 CURRENT_STEP="topic 首页按 created 排序并在非法值时回退 score"
 request POST "$BASE_URL/create" "{\"path\":\"$CREATED_SORT_TOPIC_PATH\",\"type\":\"topic\"}" \

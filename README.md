@@ -45,6 +45,8 @@ curl -H "Authorization: Bearer $POST_TOKEN" \
 
 `GET /query`, `GET /create`, `GET /update`, and `GET /delete` remain normal public content paths.
 
+Topic pages keep a flat list by default. When a topic has more than 10 entries across multiple Asia/Shanghai display years, entries are grouped by year.
+
 For details, see [API documentation](https://github.com/mirtlecn/post-go/blob/master/API.md)
 
 ## CLI client
