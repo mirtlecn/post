@@ -26,14 +26,31 @@ async function requestJson(url, init = {}, fallbackMessage) {
 }
 
 export async function apiRequest(init = {}) {
-  return requestJson(API_ROOT, init, 'Request failed');
+  return requestJson(`${API_ROOT}/query`, {
+    method: 'POST',
+    ...init,
+  }, 'Request failed');
 }
 
 export async function uploadFile(formData) {
-  return requestJson(API_ROOT, {
+  return requestJson(`${API_ROOT}/create`, {
     method: 'POST',
     body: formData,
   }, 'Upload failed');
+}
+
+export async function createRequest(init = {}) {
+  return requestJson(`${API_ROOT}/create`, {
+    method: 'POST',
+    ...init,
+  }, 'Request failed');
+}
+
+export async function deleteRequest(init = {}) {
+  return requestJson(`${API_ROOT}/delete`, {
+    method: 'POST',
+    ...init,
+  }, 'Request failed');
 }
 
 export async function sessionRequest(init = {}) {

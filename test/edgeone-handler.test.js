@@ -7,8 +7,8 @@ import { createFetchNodeAdapters } from '../lib/server/fetch-node-adapter.js';
 import { jsonResponse } from '../lib/utils/response.js';
 import { getDomain, parseRequestBodyWithLimit } from '../lib/utils/storage.js';
 
-test('fetch node adapter sends json requests through existing api handlers', async () => {
-  const request = new Request('https://post.example/api?debug=1', {
+test('fetch node adapter sends json action requests through existing api handlers', async () => {
+  const request = new Request('https://post.example/create?debug=1', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -35,13 +35,13 @@ test('fetch node adapter sends json requests through existing api handlers', asy
   assert.equal(response.status, 201);
   assert.equal(response.headers.get('content-type'), 'application/json');
   assert.deepEqual(payload.body, { hello: 'edgeone' });
-  assert.equal(payload.url, '/api?debug=1');
+  assert.equal(payload.url, '/create?debug=1');
   assert.equal(payload.host, 'post.example');
 });
 
 test('fetch node adapter keeps admin request wrappers body-readable', async () => {
   process.env.SECRET_KEY = 'edge-secret';
-  const request = new Request('https://post.example/api/admin', {
+  const request = new Request('https://post.example/api/admin/create', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -85,7 +85,7 @@ test('fetch node adapter preserves status, headers, and set-cookie', async () =>
   assert.equal(await response.text(), 'ok');
 });
 
-test('edgeone handler routes admin session, admin api, and public paths', async () => {
+test('edgeone handler routes admin session, admin action api, and public paths', async () => {
   const calls = [];
   const handler = createEdgeOneRequestHandler({
     loadHandlers: async () => ({
@@ -109,7 +109,7 @@ test('edgeone handler routes admin session, admin api, and public paths', async 
     request: new Request('https://post.example/api/admin/session', { method: 'GET' }),
   });
   const adminResponse = await handler({
-    request: new Request('https://post.example/api/admin', { method: 'GET' }),
+    request: new Request('https://post.example/api/admin/query', { method: 'POST' }),
   });
   const rootResponse = await handler({
     request: new Request('https://post.example/topic/item?export=1', { method: 'GET' }),
@@ -121,7 +121,7 @@ test('edgeone handler routes admin session, admin api, and public paths', async 
   assert.equal(await rootResponse.text(), 'root');
   assert.deepEqual(calls, [
     ['session', '/api/admin/session'],
-    ['admin', '/api/admin'],
+    ['admin', '/api/admin/query'],
     ['root', '/topic/item?export=1'],
   ]);
 });

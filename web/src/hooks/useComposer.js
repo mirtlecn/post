@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { apiRequest, uploadFile } from '../lib/api.js';
+import { createRequest, uploadFile } from '../lib/api.js';
 import {
   buildFileUploadData,
   buildInitialForm,
@@ -70,7 +70,7 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
   async function submitText() {
     if (!form.content.trim()) throw new Error('Content is required');
     const body = buildTextRequestBody(form);
-    const payload = await apiRequest({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const payload = await createRequest({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     notify('success', 'Created');
     return payload;
   }

@@ -45,6 +45,28 @@ test('local request handler keeps unknown admin subpaths away from shell fallbac
   assert.equal(rootCalls, 1);
 });
 
+test('local request handler routes admin action api paths to admin handler', async () => {
+  const tempDirectory = await mkdtemp(join(tmpdir(), 'post-admin-action-'));
+  await writeFile(join(tempDirectory, 'index.html'), '<!doctype html><html>Admin</html>');
+
+  const calls = [];
+  const handler = createLocalRequestHandler({
+    adminDirectory: tempDirectory,
+    handleRoot: async () => {
+      calls.push('root');
+    },
+    handleAdmin: async () => {
+      calls.push('admin');
+    },
+    handleAdminSession: async () => {
+      calls.push('session');
+    },
+  });
+
+  await handler(createMockRequest({ method: 'POST', url: '/api/admin/create' }), createMockResponse());
+  assert.deepEqual(calls, ['admin']);
+});
+
 test('local request handler returns not built message when admin shell is missing', async () => {
   const tempDirectory = await mkdtemp(join(tmpdir(), 'post-admin-missing-'));
   await mkdir(join(tempDirectory, 'assets'));

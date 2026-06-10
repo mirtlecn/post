@@ -86,6 +86,7 @@ TTL_TOPIC_ORPHAN_PATH="$TTL_TOPIC_PATH/branch/entry"
 cleanup() {
   local path
   for path in \
+    "query" \
     "$ALIAS_TEXT_PATH" \
     "$TEXT_PATH" \
     "$URL_PATH" \
@@ -130,11 +131,11 @@ cleanup() {
     "$UPLOAD_UNKNOWN_FILE_PATH"
   do
     /usr/bin/curl -s \
-      -X DELETE \
+      -X POST \
       -H "Authorization: Bearer $SECRET_KEY" \
       -H "Content-Type: application/json" \
       -d "{\"path\":\"$path\"}" \
-      "$BASE_URL" >/dev/null 2>&1 || true
+      "$BASE_URL/delete" >/dev/null 2>&1 || true
   done
 
   for path in \
@@ -148,11 +149,11 @@ cleanup() {
     "$TTL_TOPIC_PATH"
   do
     /usr/bin/curl -s \
-      -X DELETE \
+      -X POST \
       -H "Authorization: Bearer $SECRET_KEY" \
       -H "Content-Type: application/json" \
       -d "{\"path\":\"$path\",\"type\":\"topic\"}" \
-      "$BASE_URL" >/dev/null 2>&1 || true
+      "$BASE_URL/delete" >/dev/null 2>&1 || true
   done
 
   redis-cli -n "$REDIS_DB" DEL \
@@ -166,14 +167,48 @@ trap cleanup EXIT
 
 # Contract and validation
 CURRENT_STEP="未鉴权写请求被拒绝"
-request POST "$BASE_URL" "{\"url\":\"hello\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"url\":\"hello\",\"type\":\"text\"}" \
   -H "Content-Type: application/json"
 expect_status 401
 expect_body_contains "\"code\":\"unauthorized\""
 log "未鉴权写请求被拒绝通过"
 
+CURRENT_STEP="旧根管理入口不可用"
+request POST "$BASE_URL" "{\"url\":\"legacy\",\"type\":\"text\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 405
+request PUT "$BASE_URL" "{\"path\":\"legacy\",\"url\":\"legacy\",\"type\":\"text\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 405
+request DELETE "$BASE_URL" "{\"path\":\"legacy\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 405
+log "旧根管理入口不可用通过"
+
+CURRENT_STEP="action 同名公开路径仍可读取"
+request POST "$BASE_URL/create" "{\"path\":\"query\",\"url\":\"public query body\",\"type\":\"text\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request GET "$BASE_URL/query" "" \
+  -H "Authorization: Bearer bad-token"
+expect_status 200
+expect_body_contains "public query body"
+request POST "$BASE_URL/query" "{\"path\":\"query\"}" \
+  -H "Authorization: Bearer bad-token" \
+  -H "Content-Type: application/json"
+expect_status 401
+request POST "$BASE_URL/delete" "{\"path\":\"query\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 200
+log "action 同名公开路径读取通过"
+
 CURRENT_STEP="type 与 convert 一致时允许写入"
-request POST "$BASE_URL" "{\"path\":\"$ALIAS_TEXT_PATH\",\"url\":\"alias body\",\"type\":\"text\",\"convert\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$ALIAS_TEXT_PATH\",\"url\":\"alias body\",\"type\":\"text\",\"convert\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -181,7 +216,7 @@ expect_body_contains "\"path\":\"$ALIAS_TEXT_PATH\""
 log "type 与 convert 一致通过"
 
 CURRENT_STEP="type 与 convert 冲突时返回 400"
-request POST "$BASE_URL" "{\"path\":\"bad-alias\",\"url\":\"alias body\",\"type\":\"text\",\"convert\":\"html\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"bad-alias\",\"url\":\"alias body\",\"type\":\"text\",\"convert\":\"html\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -189,7 +224,7 @@ expect_body_contains "\"error\":\"\`type\` and \`convert\` must match when both 
 log "type 与 convert 冲突通过"
 
 CURRENT_STEP="路径长度校验"
-request POST "$BASE_URL" "{\"path\":\"$LONG_PATH\",\"url\":\"hello\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$LONG_PATH\",\"url\":\"hello\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -197,7 +232,7 @@ expect_json_error_message "path must be 1-99 characters"
 log "路径长度校验通过"
 
 CURRENT_STEP="路径字符校验"
-request POST "$BASE_URL" "{\"path\":\"$INVALID_PATH\",\"url\":\"hello\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$INVALID_PATH\",\"url\":\"hello\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -205,7 +240,7 @@ expect_json_error_message "path can only contain: a-z A-Z 0-9 - _ . / ( )"
 log "路径字符校验通过"
 
 CURRENT_STEP="边缘斜杠会规范到同一个 path"
-request POST "$BASE_URL" "{\"path\":\"///\",\"url\":\"root body\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"///\",\"url\":\"root body\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -214,7 +249,7 @@ expect_body_contains "\"surl\":\"$BASE_URL/\""
 request GET "$BASE_URL/"
 expect_status 200
 expect_body_contains "root body"
-request DELETE "$BASE_URL" "{\"path\":\"/////\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"/////\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -224,7 +259,7 @@ expect_status 404
 log "边缘斜杠规范化通过"
 
 CURRENT_STEP="无效 JSON body 被拒绝"
-request POST "$BASE_URL" '{"path":' \
+request POST "$BASE_URL/create" '{"path":' \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -232,7 +267,7 @@ expect_body_contains "\"error\":\"Invalid JSON body\""
 log "无效 JSON body 被拒绝通过"
 
 CURRENT_STEP="文件上传与缓存链路"
-request POST "$BASE_URL" "" \
+request POST "$BASE_URL/create" "" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -F "file=@README.md" \
   -F "path=$UPLOAD_PATH"
@@ -249,7 +284,7 @@ else
   FILE_META_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:filemeta:$UPLOAD_FILE_PATH")"
   expect_equals "$FILE_CACHE_EXISTS" "1"
   expect_equals "$FILE_META_CACHE_EXISTS" "1"
-  request DELETE "$BASE_URL" "{\"path\":\"$UPLOAD_FILE_PATH\"}" \
+  request POST "$BASE_URL/delete" "{\"path\":\"$UPLOAD_FILE_PATH\"}" \
     -H "Authorization: Bearer $SECRET_KEY" \
     -H "Content-Type: application/json"
   expect_status 200
@@ -270,7 +305,7 @@ printf '%%PDF-1.7\n%%mime sniff\n' >"$PDF_UPLOAD_FILE"
 printf '%%PDF-1.7\n%%sniffed body\n' >"$SNIFFED_PDF_UPLOAD_FILE"
 printf 'mystery body\n' >"$UNKNOWN_UPLOAD_FILE"
 
-request POST "$BASE_URL" "" \
+request POST "$BASE_URL/create" "" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -F "file=@$TEXT_UPLOAD_FILE;type=application/octet-stream;filename=$UPLOAD_OCTET_TXT_FILE_PATH" \
   -F "path=$UPLOAD_OCTET_TXT_PATH"
@@ -280,7 +315,7 @@ if [ "$LAST_STATUS" != "501" ]; then
   expect_status 200
   expect_header_contains "^content-type: text/plain; charset=utf-8"
 
-  request POST "$BASE_URL" "" \
+  request POST "$BASE_URL/create" "" \
     -H "Authorization: Bearer $SECRET_KEY" \
     -F "file=@$PDF_UPLOAD_FILE;type=application/octet-stream;filename=$UPLOAD_OCTET_PDF_FILE_PATH" \
     -F "path=$UPLOAD_OCTET_PDF_PATH"
@@ -289,7 +324,7 @@ if [ "$LAST_STATUS" != "501" ]; then
   expect_status 200
   expect_header_contains "^content-type: application/pdf"
 
-  request POST "$BASE_URL" "" \
+  request POST "$BASE_URL/create" "" \
     -H "Authorization: Bearer $SECRET_KEY" \
     -F "file=@$TEXT_UPLOAD_FILE;type=text/plain;filename=$UPLOAD_TRUSTED_TXT_FILE_PATH" \
     -F "path=$UPLOAD_TRUSTED_TXT_PATH"
@@ -299,7 +334,7 @@ if [ "$LAST_STATUS" != "501" ]; then
   expect_header_contains "^content-type: text/plain"
   expect_header_not_contains "^content-type: text/plain; charset=utf-8"
 
-  request POST "$BASE_URL" "" \
+  request POST "$BASE_URL/create" "" \
     -H "Authorization: Bearer $SECRET_KEY" \
     -F "file=@$SNIFFED_PDF_UPLOAD_FILE;type=application/octet-stream;filename=$UPLOAD_SNIFFED_PDF_FILE_PATH" \
     -F "path=$UPLOAD_SNIFFED_PDF_PATH"
@@ -308,7 +343,7 @@ if [ "$LAST_STATUS" != "501" ]; then
   expect_status 200
   expect_header_contains "^content-type: application/pdf"
 
-  request POST "$BASE_URL" "" \
+  request POST "$BASE_URL/create" "" \
     -H "Authorization: Bearer $SECRET_KEY" \
     -F "file=@$UNKNOWN_UPLOAD_FILE;type=application/octet-stream;filename=$UPLOAD_UNKNOWN_FILE_PATH" \
     -F "path=$UPLOAD_UNKNOWN_PATH"
@@ -324,7 +359,7 @@ if [ "$LAST_STATUS" != "501" ]; then
     "$UPLOAD_SNIFFED_PDF_FILE_PATH" \
     "$UPLOAD_UNKNOWN_FILE_PATH"
   do
-    request DELETE "$BASE_URL" "{\"path\":\"$path\"}" \
+    request POST "$BASE_URL/delete" "{\"path\":\"$path\"}" \
       -H "Authorization: Bearer $SECRET_KEY" \
       -H "Content-Type: application/json"
     expect_status 200
@@ -335,30 +370,30 @@ fi
 
 # Public behavior, cache headers, export mode, topic home guards
 CURRENT_STEP="创建 text/html/url/topic 资源"
-request POST "$BASE_URL" "{\"path\":\"$TEXT_PATH\",\"url\":\"$LONG_BODY\",\"type\":\"text\",\"title\":\"Long Body\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TEXT_PATH\",\"url\":\"$LONG_BODY\",\"type\":\"text\",\"title\":\"Long Body\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$URL_PATH\",\"url\":\"https://example.com/cache\",\"type\":\"url\",\"title\":\"Cache URL\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$URL_PATH\",\"url\":\"https://example.com/cache\",\"type\":\"url\",\"title\":\"Cache URL\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$HTML_PATH\",\"url\":\"<h1>Cache Html</h1>\",\"type\":\"html\",\"title\":\"Cache Html\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$HTML_PATH\",\"url\":\"<h1>Cache Html</h1>\",\"type\":\"html\",\"title\":\"Cache Html\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$CONTRACT_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$CONTRACT_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"topic\":\"$CONTRACT_TOPIC_PATH\",\"path\":\"entry\",\"url\":\"# Topic Entry\\n\\nTopic Body\",\"type\":\"md2html\",\"title\":\"Topic Entry\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$CONTRACT_TOPIC_PATH\",\"path\":\"entry\",\"url\":\"# Topic Entry\\n\\nTopic Body\",\"type\":\"md2html\",\"title\":\"Topic Entry\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
 log "创建 text/html/url/topic 资源通过"
 
 CURRENT_STEP="认证 JSON 不应返回 public cache header"
-request GET "$BASE_URL" "{\"path\":\"$TEXT_PATH\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$TEXT_PATH\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -397,7 +432,7 @@ expect_body_contains "Topic Entry"
 log "公开 topic cache header 通过"
 
 CURRENT_STEP="x-export lookup 返回全文"
-request GET "$BASE_URL" "{\"path\":\"$TEXT_PATH\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$TEXT_PATH\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json" \
   -H "x-export: true"
@@ -406,7 +441,7 @@ expect_body_contains "\"content\":\"$LONG_BODY\""
 log "x-export lookup 通过"
 
 CURRENT_STEP="x-export list 返回全文"
-request GET "$BASE_URL" "{}" \
+request POST "$BASE_URL/query" "{}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json" \
   -H "x-export: true"
@@ -416,7 +451,7 @@ expect_body_contains "\"content\":\"$LONG_BODY\""
 log "x-export list 通过"
 
 CURRENT_STEP="topic 的 x-export 仍返回 count 字符串"
-request GET "$BASE_URL" "{\"path\":\"$CONTRACT_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$CONTRACT_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json" \
   -H "x-export: true"
@@ -425,16 +460,16 @@ expect_body_contains "\"content\":\"1\""
 log "topic 的 x-export 通过"
 
 CURRENT_STEP="重复创建返回 conflict 与 hint"
-request POST "$BASE_URL" "{\"path\":\"$TEXT_PATH\",\"url\":\"another\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TEXT_PATH\",\"url\":\"another\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 409
 expect_body_contains "\"code\":\"conflict\""
-expect_body_contains "\"hint\":\"Use PUT to overwrite\""
+expect_body_contains "\"hint\":\"Use POST /update to overwrite\""
 log "重复创建 conflict 通过"
 
 CURRENT_STEP="topic 首页不能按普通内容更新"
-request PUT "$BASE_URL" "{\"path\":\"$CONTRACT_TOPIC_PATH\",\"url\":\"bad overwrite\",\"type\":\"text\"}" \
+request POST "$BASE_URL/update" "{\"path\":\"$CONTRACT_TOPIC_PATH\",\"url\":\"bad overwrite\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -442,7 +477,7 @@ expect_body_contains "\"error\":\"topic home must be managed with \`type=topic\`
 log "topic 首页普通更新保护通过"
 
 CURRENT_STEP="topic 首页不能按普通内容删除"
-request DELETE "$BASE_URL" "{\"path\":\"$CONTRACT_TOPIC_PATH\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$CONTRACT_TOPIC_PATH\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -450,7 +485,7 @@ expect_body_contains "\"error\":\"topic home must be managed with \`type=topic\`
 log "topic 首页普通删除保护通过"
 
 CURRENT_STEP="删除 topic 返回当前 count"
-request DELETE "$BASE_URL" "{\"path\":\"$CONTRACT_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$CONTRACT_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -467,7 +502,7 @@ log "公开读取不存在通过"
 
 # Topic storage synchronization
 CURRENT_STEP="创建 storage topic"
-request POST "$BASE_URL" "{\"path\":\"$STORAGE_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$STORAGE_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -487,11 +522,11 @@ expect_equals "$TOPIC_REDIS_ZRANGE" $'__topic_placeholder__\n0'
 log "storage topic Redis 初始化通过"
 
 CURRENT_STEP="创建 storage topic 成员与 orphan"
-request POST "$BASE_URL" "{\"topic\":\"$STORAGE_TOPIC_PATH\",\"path\":\"entry\",\"url\":\"# Entry\\n\\nHello\",\"type\":\"md2html\",\"title\":\"Entry Title\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$STORAGE_TOPIC_PATH\",\"path\":\"entry\",\"url\":\"# Entry\\n\\nHello\",\"type\":\"md2html\",\"title\":\"Entry Title\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$STORAGE_ORPHAN_PATH\",\"url\":\"hello orphan\",\"type\":\"text\",\"title\":\"Orphan Title\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$STORAGE_ORPHAN_PATH\",\"url\":\"hello orphan\",\"type\":\"text\",\"title\":\"Orphan Title\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -512,7 +547,7 @@ expect_equals "$TOPIC_REDIS_MEMBERS" $'__topic_placeholder__\nentry\norphan'
 log "storage topic Redis 同步通过"
 
 CURRENT_STEP="删除 storage topic 成员 entry"
-request DELETE "$BASE_URL" "{\"path\":\"$STORAGE_ENTRY_PATH\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$STORAGE_ENTRY_PATH\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -529,7 +564,7 @@ expect_redis_contains "$TOPIC_REDIS_VALUE" "$STORAGE_ORPHAN_PATH"
 log "删除 storage topic 成员 entry 通过"
 
 CURRENT_STEP="删除 storage topic 本身但保留 orphan"
-request DELETE "$BASE_URL" "{\"path\":\"$STORAGE_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$STORAGE_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -543,7 +578,7 @@ expect_equals "$ORPHAN_EXISTS" "1"
 log "删除 storage topic 本身通过"
 
 CURRENT_STEP="重建 storage topic adopt orphan"
-request POST "$BASE_URL" "{\"path\":\"$STORAGE_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$STORAGE_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -556,7 +591,7 @@ log "重建 storage topic adopt orphan 通过"
 
 # Rendering behavior
 CURRENT_STEP="创建 render topic"
-request POST "$BASE_URL" "{\"path\":\"$RENDER_TOPIC_PATH\",\"type\":\"topic\",\"title\":\"$RENDER_TOPIC_TITLE\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$RENDER_TOPIC_PATH\",\"type\":\"topic\",\"title\":\"$RENDER_TOPIC_TITLE\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -571,22 +606,22 @@ expect_body_contains "<div style=\"font-size: 1.3em; font-weight: bold\">$RENDER
 log "空 render topic 公开页渲染通过"
 
 CURRENT_STEP="创建 render topic 条目"
-request POST "$BASE_URL" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"howl-visual\",\"url\":\"# Howl Visual Draft\\n\\nHello\",\"type\":\"md2html\",\"title\":\"Howl Visual Draft\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"howl-visual\",\"url\":\"# Howl Visual Draft\\n\\nHello\",\"type\":\"md2html\",\"title\":\"Howl Visual Draft\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$RENDER_URL_ITEM_PATH\",\"url\":\"https://example.com/reference\",\"type\":\"url\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$RENDER_URL_ITEM_PATH\",\"url\":\"https://example.com/reference\",\"type\":\"url\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"castle-notes\",\"url\":\"castle notes body\",\"type\":\"text\",\"title\":\"Castle Notes\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"castle-notes\",\"url\":\"castle notes body\",\"type\":\"text\",\"title\":\"Castle Notes\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
 log "创建 render topic 条目通过"
 
 CURRENT_STEP="topic 条目可省略 path 自动生成"
-request POST "$BASE_URL" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"url\":\"auto path body\",\"type\":\"text\",\"title\":\"Auto Path\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"url\":\"auto path body\",\"type\":\"text\",\"title\":\"Auto Path\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -621,7 +656,7 @@ expect_body_contains ".markdown-body"
 log "内置资源允许站内请求通过"
 
 CURRENT_STEP="更新 render topic title"
-request PUT "$BASE_URL" "{\"path\":\"$RENDER_TOPIC_PATH\",\"type\":\"topic\",\"title\":\"$RENDER_TOPIC_UPDATED_TITLE\"}" \
+request POST "$BASE_URL/update" "{\"path\":\"$RENDER_TOPIC_PATH\",\"type\":\"topic\",\"title\":\"$RENDER_TOPIC_UPDATED_TITLE\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -629,7 +664,7 @@ expect_body_contains "\"title\":\"$RENDER_TOPIC_UPDATED_TITLE\""
 log "更新 render topic title 通过"
 
 CURRENT_STEP="更新 title 后新 md2html 使用新 topic title"
-request POST "$BASE_URL" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"moving-castle\",\"url\":\"# Moving Castle\\n\\nHello\",\"type\":\"md2html\",\"title\":\"Moving Castle\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"moving-castle\",\"url\":\"# Moving Castle\\n\\nHello\",\"type\":\"md2html\",\"title\":\"Moving Castle\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -665,24 +700,24 @@ expect_body_not_contains "  · "
 log "render topic 首页渲染通过"
 
 CURRENT_STEP="topic 首页按 created 排序并在非法值时回退 score"
-request POST "$BASE_URL" "{\"path\":\"$CREATED_SORT_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$CREATED_SORT_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"topic\":\"$CREATED_SORT_TOPIC_PATH\",\"path\":\"old\",\"url\":\"old body\",\"type\":\"text\",\"title\":\"Old\",\"created\":\"2026-03-18\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$CREATED_SORT_TOPIC_PATH\",\"path\":\"old\",\"url\":\"old body\",\"type\":\"text\",\"title\":\"Old\",\"created\":\"2026-03-18\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"topic\":\"$CREATED_SORT_TOPIC_PATH\",\"path\":\"new\",\"url\":\"new body\",\"type\":\"text\",\"title\":\"New\",\"created\":\"2026-03-21\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$CREATED_SORT_TOPIC_PATH\",\"path\":\"new\",\"url\":\"new body\",\"type\":\"text\",\"title\":\"New\",\"created\":\"2026-03-21\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"topic\":\"$CREATED_SORT_TOPIC_PATH\",\"path\":\"fallback\",\"url\":\"fallback body\",\"type\":\"text\",\"title\":\"Fallback\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$CREATED_SORT_TOPIC_PATH\",\"path\":\"fallback\",\"url\":\"fallback body\",\"type\":\"text\",\"title\":\"Fallback\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
 redis-cli -n "$REDIS_DB" SET "surl:$CREATED_SORT_FALLBACK_PATH" '{"type":"text","content":"fallback body","title":"Fallback","created":"bad-value"}' >/dev/null
-request PUT "$BASE_URL" "{\"path\":\"$CREATED_SORT_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/update" "{\"path\":\"$CREATED_SORT_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -700,7 +735,7 @@ fi
 log "topic 首页 created / score 排序通过"
 
 CURRENT_STEP="缺失 topic 的负面路径"
-request POST "$BASE_URL" "{\"topic\":\"missing-$RENDER_TOPIC_PATH\",\"path\":\"x\",\"url\":\"hello\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"missing-$RENDER_TOPIC_PATH\",\"path\":\"x\",\"url\":\"hello\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -708,7 +743,7 @@ expect_body_contains "\"error\":\"topic does not exist\""
 log "缺失 topic 的负面路径通过"
 
 CURRENT_STEP="topic 请求不允许根路径"
-request POST "$BASE_URL" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"///\",\"url\":\"hello\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"///\",\"url\":\"hello\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -716,7 +751,7 @@ expect_body_contains "\"error\":\"\`path\` cannot be \\\"/\\\" when \`topic\` is
 log "topic 根路径保护通过"
 
 CURRENT_STEP="topic 与 path 不匹配的负面路径"
-request POST "$BASE_URL" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"other/castle\",\"url\":\"hello\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$RENDER_TOPIC_PATH\",\"path\":\"other/castle\",\"url\":\"hello\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -725,34 +760,34 @@ log "topic 与 path 不匹配的负面路径通过"
 
 # Read contract
 CURRENT_STEP="创建 read contract 资源"
-request POST "$BASE_URL" "{\"path\":\"$READ_TEXT_PATH\",\"url\":\"hello\",\"type\":\"text\",\"title\":\"Greeting\",\"ttl\":5,\"created\":\"2026-03-19\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$READ_TEXT_PATH\",\"url\":\"hello\",\"type\":\"text\",\"title\":\"Greeting\",\"ttl\":5,\"created\":\"2026-03-19\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_not_contains "expires_in"
 expect_body_contains "\"created\":\"2026-03-18T16:00:00Z\""
-request POST "$BASE_URL" "{\"path\":\"$READ_URL_PATH\",\"url\":\"https://example.com/redirect\",\"type\":\"url\",\"title\":\"Ref\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$READ_URL_PATH\",\"url\":\"https://example.com/redirect\",\"type\":\"url\",\"title\":\"Ref\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$READ_HTML_PATH\",\"url\":\"<h1>Hello Html</h1>\",\"type\":\"html\",\"title\":\"Html Title\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$READ_HTML_PATH\",\"url\":\"<h1>Hello Html</h1>\",\"type\":\"html\",\"title\":\"Html Title\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$READ_TOPIC_PATH\",\"type\":\"topic\",\"created\":\"2026-03-20\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$READ_TOPIC_PATH\",\"type\":\"topic\",\"created\":\"2026-03-20\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"created\":\"2026-03-19T16:00:00Z\""
-request POST "$BASE_URL" "{\"topic\":\"$READ_TOPIC_PATH\",\"path\":\"entry\",\"url\":\"# Topic Entry\\n\\nBody\",\"type\":\"md2html\",\"title\":\"Topic Entry\",\"created\":\"2026-03-20 08:09:10\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$READ_TOPIC_PATH\",\"path\":\"entry\",\"url\":\"# Topic Entry\\n\\nBody\",\"type\":\"md2html\",\"title\":\"Topic Entry\",\"created\":\"2026-03-20 08:09:10\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"created\":\"2026-03-20T00:09:10Z\""
 log "创建 read contract 资源通过"
 
-CURRENT_STEP="GET body 单条 lookup"
-request GET "$BASE_URL" "{\"path\":\"$READ_TEXT_PATH\"}" \
+CURRENT_STEP="POST /query 单条 lookup"
+request POST "$BASE_URL/query" "{\"path\":\"$READ_TEXT_PATH\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -760,10 +795,10 @@ expect_body_contains "\"title\":\"Greeting\""
 expect_body_contains "\"created\":\"2026-03-18T16:00:00Z\""
 expect_body_matches "\"ttl\":(4|5)"
 expect_body_contains "\"content\":\"hello\""
-log "GET body 单条 lookup 通过"
+log "POST /query 单条 lookup 通过"
 
-CURRENT_STEP="PUT 更新返回 overwritten"
-request PUT "$BASE_URL" "{\"path\":\"$READ_TEXT_PATH\",\"url\":\"hello updated body\",\"type\":\"text\",\"title\":\"Greeting Updated\"}" \
+CURRENT_STEP="POST /update 更新返回 overwritten"
+request POST "$BASE_URL/update" "{\"path\":\"$READ_TEXT_PATH\",\"url\":\"hello updated body\",\"type\":\"text\",\"title\":\"Greeting Updated\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -771,10 +806,10 @@ expect_body_contains "\"created\":\"2026-03-18T16:00:00Z\""
 expect_body_contains "\"ttl\":null"
 expect_body_contains "\"overwritten\":\"hello\""
 expect_body_not_contains "expires_in"
-log "PUT 更新返回 overwritten 通过"
+log "POST /update 更新返回 overwritten 通过"
 
-CURRENT_STEP="GET body topic lookup"
-request GET "$BASE_URL" "{\"path\":\"$READ_TOPIC_PATH\",\"type\":\"topic\"}" \
+CURRENT_STEP="POST /query topic lookup"
+request POST "$BASE_URL/query" "{\"path\":\"$READ_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -782,20 +817,20 @@ expect_body_contains "\"type\":\"topic\""
 expect_body_contains "\"created\":\"2026-03-19T16:00:00Z\""
 expect_body_contains "\"ttl\":null"
 expect_body_contains "\"content\":\"1\""
-log "GET body topic lookup 通过"
+log "POST /query topic lookup 通过"
 
-CURRENT_STEP="GET body topic list"
+CURRENT_STEP="POST /query topic list"
 redis-cli -n "$REDIS_DB" SET "surl:$GHOST_TOPIC_PATH" '{"type":"topic","content":"<html></html>","title":"ghost"}' >/dev/null
-request GET "$BASE_URL" "{\"type\":\"topic\"}" \
+request POST "$BASE_URL/query" "{\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"path\":\"$READ_TOPIC_PATH\""
 expect_body_not_contains "\"path\":\"$GHOST_TOPIC_PATH\""
-log "GET body topic list 通过"
+log "POST /query topic list 通过"
 
-CURRENT_STEP="GET body 全量列表"
-request GET "$BASE_URL" "{}" \
+CURRENT_STEP="POST /query 全量列表"
+request POST "$BASE_URL/query" "{}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -804,41 +839,41 @@ expect_body_contains "\"path\":\"$READ_TOPIC_PATH\""
 expect_body_contains "\"created\":\"2026-03-18T16:00:00Z\""
 expect_body_contains "\"created\":\"2026-03-19T16:00:00Z\""
 expect_body_contains "\"content\":\"1\""
-log "GET body 全量列表通过"
+log "POST /query 全量列表通过"
 
 CURRENT_STEP="创建 wildcard lookup/delete 资源"
-request POST "$BASE_URL" "{\"path\":\"$WILDCARD_TEXT_ONE_PATH\",\"url\":\"wild body one\",\"type\":\"text\",\"title\":\"Wild One\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$WILDCARD_TEXT_ONE_PATH\",\"url\":\"wild body one\",\"type\":\"text\",\"title\":\"Wild One\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$WILDCARD_TEXT_TWO_PATH\",\"url\":\"wild body two is longer than preview\",\"type\":\"text\",\"title\":\"Wild Two\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$WILDCARD_TEXT_TWO_PATH\",\"url\":\"wild body two is longer than preview\",\"type\":\"text\",\"title\":\"Wild Two\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$WILDCARD_SKIP_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic Skip\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$WILDCARD_SKIP_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic Skip\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_ONE_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic One\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$WILDCARD_TOPIC_ONE_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic One\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_TWO_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic Two\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$WILDCARD_TOPIC_TWO_PATH\",\"type\":\"topic\",\"title\":\"Wildcard Topic Two\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"topic\":\"$WILDCARD_TOPIC_ONE_PATH\",\"path\":\"entry\",\"url\":\"wild topic child one\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$WILDCARD_TOPIC_ONE_PATH\",\"path\":\"entry\",\"url\":\"wild topic child one\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"topic\":\"$WILDCARD_TOPIC_TWO_PATH\",\"path\":\"entry\",\"url\":\"wild topic child two\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$WILDCARD_TOPIC_TWO_PATH\",\"path\":\"entry\",\"url\":\"wild topic child two\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
 log "wildcard lookup/delete 资源创建通过"
 
-CURRENT_STEP="GET body 普通 wildcard lookup"
-request GET "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
+CURRENT_STEP="POST /query 普通 wildcard lookup"
+request POST "$BASE_URL/query" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -848,8 +883,8 @@ expect_body_not_contains "\"path\":\"$WILDCARD_SKIP_PATH\""
 expect_body_matches "^\\["
 log "普通 wildcard lookup 通过"
 
-CURRENT_STEP="GET body topic wildcard lookup"
-request GET "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
+CURRENT_STEP="POST /query topic wildcard lookup"
+request POST "$BASE_URL/query" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -860,7 +895,7 @@ expect_body_not_contains "\"path\":\"$WILDCARD_TOPIC_CHILD_TWO_PATH\""
 log "topic wildcard lookup 通过"
 
 CURRENT_STEP="x-export 普通 wildcard lookup 返回全文"
-request GET "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json" \
   -H "x-export: true"
@@ -870,15 +905,15 @@ expect_body_contains "\"content\":\"wild body two is longer than preview\""
 log "x-export 普通 wildcard lookup 通过"
 
 CURRENT_STEP="wildcard path 只支持末尾单个星号"
-request GET "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*bad\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$WILDCARD_PREFIX*bad\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
 expect_body_contains "\"error\":\"\`path\` wildcard only supports a single trailing \\\"*\\\"\""
 log "wildcard path 校验通过"
 
-CURRENT_STEP="DELETE 普通 wildcard 删除返回汇总"
-request DELETE "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
+CURRENT_STEP="POST /delete 普通 wildcard 删除返回汇总"
+request POST "$BASE_URL/delete" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -886,20 +921,20 @@ expect_body_contains "\"deleted\":["
 expect_body_contains "\"deleted\":\"$WILDCARD_TEXT_ONE_PATH\""
 expect_body_contains "\"deleted\":\"$WILDCARD_TEXT_TWO_PATH\""
 expect_body_contains "\"errors\":[]"
-request GET "$BASE_URL" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$WILDCARD_PREFIX*\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "[]"
-request GET "$BASE_URL" "{\"path\":\"$WILDCARD_SKIP_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$WILDCARD_SKIP_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"path\":\"$WILDCARD_SKIP_PATH\""
 log "普通 wildcard 删除通过"
 
-CURRENT_STEP="DELETE topic wildcard 删除仅删 topic home"
-request DELETE "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
+CURRENT_STEP="POST /delete topic wildcard 删除仅删 topic home"
+request POST "$BASE_URL/delete" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -913,7 +948,7 @@ expect_body_contains "wild topic child one"
 request GET "$BASE_URL/$WILDCARD_TOPIC_CHILD_TWO_PATH"
 expect_status 200
 expect_body_contains "wild topic child two"
-request GET "$BASE_URL" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$WILDCARD_TOPIC_PREFIX*\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -922,18 +957,18 @@ log "topic wildcard 删除通过"
 
 CURRENT_STEP="旧数据非法 created 读取返回 illegal"
 redis-cli -n "$REDIS_DB" SET "surl:$ILLEGAL_CREATED_PATH" '{"type":"text","content":"legacy body","title":"Legacy","created":"bad-value"}' >/dev/null
-request GET "$BASE_URL" "{\"path\":\"$ILLEGAL_CREATED_PATH\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$ILLEGAL_CREATED_PATH\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"created\":\"illegal\""
-request GET "$BASE_URL" "{}" \
+request POST "$BASE_URL/query" "{}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"path\":\"$ILLEGAL_CREATED_PATH\""
 expect_body_contains "\"created\":\"illegal\""
-request DELETE "$BASE_URL" "{\"path\":\"$ILLEGAL_CREATED_PATH\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$ILLEGAL_CREATED_PATH\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -956,16 +991,16 @@ expect_status 302
 expect_header_contains "^location: https://example.com/redirect"
 log "公开读取 read contract 资源通过"
 
-CURRENT_STEP="GET body type/convert 冲突"
-request GET "$BASE_URL" "{\"path\":\"$READ_TEXT_PATH\",\"type\":\"topic\",\"convert\":\"text\"}" \
+CURRENT_STEP="POST /query type/convert 冲突"
+request POST "$BASE_URL/query" "{\"path\":\"$READ_TEXT_PATH\",\"type\":\"topic\",\"convert\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
 expect_body_contains "\"error\":\"\`type\` and \`convert\` must match when both are provided\""
-log "GET body type/convert 冲突通过"
+log "POST /query type/convert 冲突通过"
 
 CURRENT_STEP="普通条目按 topic 查询返回 not_found"
-request GET "$BASE_URL" "{\"path\":\"$READ_TEXT_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$READ_TEXT_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 404
@@ -974,7 +1009,7 @@ log "普通条目按 topic 查询通过"
 
 # TTL and topic refresh semantics
 CURRENT_STEP="ttl=0 不过期"
-request POST "$BASE_URL" "{\"path\":\"$TTL_ZERO_PATH\",\"url\":\"hello zero\",\"type\":\"text\",\"ttl\":0}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TTL_ZERO_PATH\",\"url\":\"hello zero\",\"type\":\"text\",\"ttl\":0}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -984,7 +1019,7 @@ expect_equals "$TTL_ZERO_REDIS" "-1"
 log "ttl=0 不过期通过"
 
 CURRENT_STEP="ttl 正数生效"
-request POST "$BASE_URL" "{\"path\":\"$TTL_LIVE_PATH\",\"url\":\"hello live\",\"type\":\"text\",\"ttl\":3}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TTL_LIVE_PATH\",\"url\":\"hello live\",\"type\":\"text\",\"ttl\":3}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -996,7 +1031,7 @@ fi
 log "ttl 正数生效通过"
 
 CURRENT_STEP="ttl=365 天生效"
-request POST "$BASE_URL" "{\"path\":\"$TTL_MAX_PATH\",\"url\":\"hello max\",\"type\":\"text\",\"ttl\":525600}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TTL_MAX_PATH\",\"url\":\"hello max\",\"type\":\"text\",\"ttl\":525600}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -1008,22 +1043,22 @@ fi
 log "ttl=365 天生效通过"
 
 CURRENT_STEP="ttl 非法值全部拒绝"
-request POST "$BASE_URL" "{\"path\":\"bad-ttl-decimal\",\"url\":\"hello\",\"type\":\"text\",\"ttl\":1.5}" \
+request POST "$BASE_URL/create" "{\"path\":\"bad-ttl-decimal\",\"url\":\"hello\",\"type\":\"text\",\"ttl\":1.5}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
 expect_body_contains "\"error\":\"\`ttl\` must be a natural number\""
-request POST "$BASE_URL" "{\"path\":\"bad-ttl-string\",\"url\":\"hello\",\"type\":\"text\",\"ttl\":\"10\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"bad-ttl-string\",\"url\":\"hello\",\"type\":\"text\",\"ttl\":\"10\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
 expect_body_contains "\"error\":\"\`ttl\` must be a natural number\""
-request POST "$BASE_URL" "{\"path\":\"bad-ttl-bool\",\"url\":\"hello\",\"type\":\"text\",\"ttl\":true}" \
+request POST "$BASE_URL/create" "{\"path\":\"bad-ttl-bool\",\"url\":\"hello\",\"type\":\"text\",\"ttl\":true}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
 expect_body_contains "\"error\":\"\`ttl\` must be a natural number\""
-request POST "$BASE_URL" "{\"path\":\"bad-ttl-too-large\",\"url\":\"hello\",\"type\":\"text\",\"ttl\":525601}" \
+request POST "$BASE_URL/create" "{\"path\":\"bad-ttl-too-large\",\"url\":\"hello\",\"type\":\"text\",\"ttl\":525601}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -1031,7 +1066,7 @@ expect_body_contains "\"error\":\"\`ttl\` must be between 0 and 525600 minutes\"
 log "ttl 非法值全部拒绝通过"
 
 CURRENT_STEP="topic 不支持 ttl"
-request POST "$BASE_URL" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\",\"ttl\":10}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\",\"ttl\":10}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -1039,11 +1074,11 @@ expect_body_contains "\"error\":\"topic does not support ttl\""
 log "topic 不支持 ttl 通过"
 
 CURRENT_STEP="普通路径已存在时不能创建 topic"
-request POST "$BASE_URL" "{\"path\":\"$TTL_TOPIC_CONFLICT_PATH\",\"url\":\"hello\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TTL_TOPIC_CONFLICT_PATH\",\"url\":\"hello\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"path\":\"$TTL_TOPIC_CONFLICT_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TTL_TOPIC_CONFLICT_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 409
@@ -1051,26 +1086,26 @@ expect_body_contains "\"code\":\"conflict\""
 log "普通路径已存在时不能创建 topic 通过"
 
 CURRENT_STEP="topic refresh 清理 stale member"
-request POST "$BASE_URL" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request POST "$BASE_URL" "{\"topic\":\"$TTL_TOPIC_PATH\",\"path\":\"entry\",\"url\":\"hello stale\",\"type\":\"text\",\"ttl\":0}" \
+request POST "$BASE_URL/create" "{\"topic\":\"$TTL_TOPIC_PATH\",\"path\":\"entry\",\"url\":\"hello stale\",\"type\":\"text\",\"ttl\":0}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request GET "$BASE_URL" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"content\":\"1\""
 redis-cli -n "$REDIS_DB" DEL "surl:$TTL_TOPIC_ITEM_PATH" >/dev/null
-request GET "$BASE_URL" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"content\":\"1\""
-request PUT "$BASE_URL" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/update" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -1080,16 +1115,16 @@ expect_equals "$TTL_TOPIC_ZCARD" "1"
 log "topic refresh 清理 stale member 通过"
 
 CURRENT_STEP="topic refresh 重新扫描漏掉的后代条目"
-request POST "$BASE_URL" "{\"path\":\"$TTL_TOPIC_ORPHAN_PATH\",\"url\":\"hello adopted later\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TTL_TOPIC_ORPHAN_PATH\",\"url\":\"hello adopted later\",\"type\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-request GET "$BASE_URL" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"content\":\"1\""
-request PUT "$BASE_URL" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/update" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -1099,12 +1134,12 @@ expect_status 200
 expect_body_contains "branch/entry"
 log "topic refresh 重新扫描漏掉的后代条目 通过"
 
-CURRENT_STEP="DELETE type/convert 冲突"
-request DELETE "$BASE_URL" "{\"path\":\"$TTL_ZERO_PATH\",\"type\":\"topic\",\"convert\":\"text\"}" \
+CURRENT_STEP="POST /delete type/convert 冲突"
+request POST "$BASE_URL/delete" "{\"path\":\"$TTL_ZERO_PATH\",\"type\":\"topic\",\"convert\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 400
 expect_body_contains "\"error\":\"\`type\` and \`convert\` must match when both are provided\""
-log "DELETE type/convert 冲突通过"
+log "POST /delete type/convert 冲突通过"
 
 echo "PASS: API smoke"

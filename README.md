@@ -19,6 +19,32 @@ export POST_BASE_URL="https://example.com"
 export POST_TOKEN="your-secret-key"
 ```
 
+Management actions use top-level POST endpoints:
+
+```bash
+curl -H "Authorization: Bearer $POST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"path":"note","url":"hello","type":"text"}' \
+  "$POST_BASE_URL/create"
+
+curl -H "Authorization: Bearer $POST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"path":"note"}' \
+  "$POST_BASE_URL/query"
+
+curl -H "Authorization: Bearer $POST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"path":"note","url":"updated","type":"text"}' \
+  "$POST_BASE_URL/update"
+
+curl -H "Authorization: Bearer $POST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"path":"note"}' \
+  "$POST_BASE_URL/delete"
+```
+
+`GET /query`, `GET /create`, `GET /update`, and `GET /delete` remain normal public content paths.
+
 For details, see [API documentation](https://github.com/mirtlecn/post-go/blob/master/API.md)
 
 ## CLI client
@@ -78,7 +104,7 @@ npm start
 - `npm run test:all`: compatibility alias for `npm test`.
 - `npm run test:quick`: runs only the unit test suite.
 - `npm run test:smoke:local`: runs the local admin/web smoke suite and the local API smoke suite.
-- `npm run test:smoke:web:local`: starts the local app with a dedicated Redis DB and exercises `/admin`, `/api/admin`, and the main JSON API with shell assertions.
+- `npm run test:smoke:web:local`: starts the local app with a dedicated Redis DB and exercises `/admin`, `/api/admin/*`, and the main JSON API action paths with shell assertions.
 - `npm run test:smoke:api:local`: starts the local app with a dedicated Redis DB and runs the API-focused smoke suite in [test/functional/smoke-api.sh](test/functional/smoke-api.sh).
 - `npm run test:smoke:web:vercel`: reserved for environments where `vercel dev` is available. It is not part of the default test chain.
 

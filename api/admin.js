@@ -3,12 +3,16 @@
  *
  * Authentication rules:
  * - Entry authentication uses ADMIN_KEY and falls back to SECRET_KEY.
- * - Downstream API calls always use SECRET_KEY.
+ * - Downstream action calls always use SECRET_KEY.
  */
 
-import handleApiRoot from './index.js';
 import { errorResponse } from '../lib/utils/response.js';
 import { isAdminRequestAuthenticated } from '../lib/utils/auth.js';
+import { createActionApiHandler } from '../lib/handlers/action-router.js';
+
+const handleAdminAction = createActionApiHandler({
+  basePath: '/api/admin',
+});
 
 function withSecretAuthorization(req) {
   const headers = { ...req.headers, authorization: `Bearer ${process.env.SECRET_KEY}` };
@@ -19,7 +23,7 @@ function withSecretAuthorization(req) {
 
 export function createAdminApiHandler({
   authenticate = isAdminRequestAuthenticated,
-  apiHandler = handleApiRoot,
+  apiHandler = handleAdminAction,
 } = {}) {
   return async function handler(req, res) {
     if (!await authenticate(req)) {

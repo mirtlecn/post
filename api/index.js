@@ -5,6 +5,7 @@ import { handleDelete } from '../lib/handlers/remove.js';
 import { handleList } from '../lib/handlers/list.js';
 import { handleAuthenticatedLookup } from '../lib/handlers/authenticated-lookup.js';
 import { handlePublicGet } from '../lib/handlers/public-get.js';
+import { getActionFromPath, handleAction } from '../lib/handlers/action-router.js';
 
 function unauthorized(res) {
   return errorResponse(res, { code: 'unauthorized', message: 'Unauthorized' }, 401);
@@ -21,6 +22,7 @@ function requireWriteAuthentication(req, res) {
 
 export function createApiHandler({
   authenticate = isAuthenticated,
+  getPathname = (req) => new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname,
   onCreate = handleCreate,
   onReplace = handleReplace,
   onDelete = handleDelete,
@@ -30,35 +32,20 @@ export function createApiHandler({
 } = {}) {
   return async function handler(req, res) {
     try {
-      switch (req.method) {
-        case 'POST':
-          if (!authenticate(req)) {
-            return unauthorized(res);
-          }
-          return onCreate(req, res);
-        case 'PUT':
-          if (!authenticate(req)) {
-            return unauthorized(res);
-          }
-          return onReplace(req, res);
-        case 'DELETE':
-          if (!authenticate(req)) {
-            return unauthorized(res);
-          }
-          return onDelete(req, res);
-        case 'GET':
-          if (authenticate(req)) {
-            if (await onLookup(req, res)) {
-              return;
-            }
-            return onList(req, res);
-          }
-          return onPublicGet(req, res);
-        case 'HEAD':
-          return onPublicGet(req, res);
-        default:
-          return errorResponse(res, { code: 'method_not_allowed', message: 'Method not allowed' }, 405);
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        return onPublicGet(req, res);
       }
+
+      const action = getActionFromPath(getPathname(req));
+      if (req.method === 'POST' && action) {
+        if (!authenticate(req)) {
+          return unauthorized(res);
+        }
+
+        return handleAction(action, req, res, { onCreate, onReplace, onDelete, onList, onLookup });
+      }
+
+      return errorResponse(res, { code: 'method_not_allowed', message: 'Method not allowed' }, 405);
     } catch (error) {
       console.error('Error:', error);
       return errorResponse(res, { code: 'internal', message: 'Internal server error' }, 500);

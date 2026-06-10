@@ -46,19 +46,19 @@ cleanup() {
   local path
   for path in "${CREATED_PATHS[@]-}"; do
     /usr/bin/curl -s \
-      -X DELETE \
+      -X POST \
       -H "Authorization: Bearer $SECRET_KEY" \
       -H "Content-Type: application/json" \
       -d "{\"path\":\"$path\"}" \
-      "$BASE_URL" >/dev/null 2>&1 || true
+      "$BASE_URL/delete" >/dev/null 2>&1 || true
   done
   for path in "${CREATED_TOPICS[@]-}"; do
     /usr/bin/curl -s \
-      -X DELETE \
+      -X POST \
       -H "Authorization: Bearer $SECRET_KEY" \
       -H "Content-Type: application/json" \
       -d "{\"path\":\"$path\",\"type\":\"topic\"}" \
-      "$BASE_URL" >/dev/null 2>&1 || true
+      "$BASE_URL/delete" >/dev/null 2>&1 || true
   done
   cleanup_http_test
 }
@@ -192,7 +192,7 @@ expect_body_contains '"authenticated":true'
 log "管理重新登录通过"
 
 CURRENT_STEP="管理列表"
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_header_contains '^content-type: application/json'
 log "管理列表通过"
@@ -200,7 +200,7 @@ log "管理列表通过"
 ADMIN_PATH="$(uniq_path admin)"
 
 CURRENT_STEP="管理创建"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$ADMIN_PATH\",\"url\":\"https://example.com/admin\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$ADMIN_PATH\",\"url\":\"https://example.com/admin\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -209,13 +209,13 @@ add_created_path "$ADMIN_PATH"
 log "管理创建通过"
 
 CURRENT_STEP="管理列表包含新条目"
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$ADMIN_PATH\""
 log "管理列表校验通过"
 
 CURRENT_STEP="管理删除"
-request DELETE "$BASE_URL/api/admin" "{\"path\":\"$ADMIN_PATH\"}" \
+request POST "$BASE_URL/api/admin/delete" "{\"path\":\"$ADMIN_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -223,13 +223,13 @@ remove_created_path "$ADMIN_PATH"
 log "管理删除通过"
 
 CURRENT_STEP="管理删除校验"
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_not_contains "\"path\":\"$ADMIN_PATH\""
 log "管理删除校验通过"
 
 CURRENT_STEP="管理超长路径校验"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -237,7 +237,7 @@ expect_json_error_message "path must be 1-99 characters"
 log "管理超长路径校验通过"
 
 CURRENT_STEP="管理非法路径校验"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$INVALID_PATH\",\"url\":\"https://example.com/invalid\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$INVALID_PATH\",\"url\":\"https://example.com/invalid\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -245,7 +245,7 @@ expect_json_error_message "path can only contain: a-z A-Z 0-9 - _ . / ( )"
 log "管理非法路径校验通过"
 
 CURRENT_STEP="管理斜杠路径创建"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/admin/nested\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/admin/nested\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -254,13 +254,13 @@ add_created_path "$SLASH_PATH"
 log "管理斜杠路径创建通过"
 
 CURRENT_STEP="管理斜杠路径列表"
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$SLASH_PATH\""
 log "管理斜杠路径列表通过"
 
 CURRENT_STEP="管理斜杠路径删除"
-request DELETE "$BASE_URL/api/admin" "{\"path\":\"$SLASH_PATH\"}" \
+request POST "$BASE_URL/api/admin/delete" "{\"path\":\"$SLASH_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -268,16 +268,16 @@ remove_created_path "$SLASH_PATH"
 log "管理斜杠路径删除通过"
 
 CURRENT_STEP="管理路径会规范化首尾斜杠"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$ADMIN_NORMALIZED_PATH_INPUT\",\"url\":\"https://example.com/admin-normalized\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$ADMIN_NORMALIZED_PATH_INPUT\",\"url\":\"https://example.com/admin-normalized\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$ADMIN_NORMALIZED_PATH\""
 add_created_path "$ADMIN_NORMALIZED_PATH"
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$ADMIN_NORMALIZED_PATH\""
-request DELETE "$BASE_URL/api/admin" "{\"path\":\"//$ADMIN_NORMALIZED_PATH//\"}" \
+request POST "$BASE_URL/api/admin/delete" "{\"path\":\"//$ADMIN_NORMALIZED_PATH//\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -291,42 +291,42 @@ ADMIN_TTL_ZERO_PATH="$(uniq_path admin-ttl-zero)"
 ADMIN_TTL_LIVE_PATH="$(uniq_path admin-ttl-live)"
 
 CURRENT_STEP="管理 ttl=0 创建"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$ADMIN_TTL_ZERO_PATH\",\"url\":\"ttl zero body\",\"ttl\":0}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$ADMIN_TTL_ZERO_PATH\",\"url\":\"ttl zero body\",\"ttl\":0}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$ADMIN_TTL_ZERO_PATH\""
 expect_body_contains "\"ttl\":null"
 add_created_path "$ADMIN_TTL_ZERO_PATH"
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$ADMIN_TTL_ZERO_PATH\""
 expect_body_contains "\"ttl\":null"
 log "管理 ttl=0 通过"
 
 CURRENT_STEP="管理 ttl 正数创建"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$ADMIN_TTL_LIVE_PATH\",\"url\":\"ttl live body\",\"ttl\":30}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$ADMIN_TTL_LIVE_PATH\",\"url\":\"ttl live body\",\"ttl\":30}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$ADMIN_TTL_LIVE_PATH\""
 expect_body_contains "\"ttl\":30"
 add_created_path "$ADMIN_TTL_LIVE_PATH"
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$ADMIN_TTL_LIVE_PATH\""
 expect_body_matches "\"path\":\"$ADMIN_TTL_LIVE_PATH\"[^\n]*\"ttl\":(2[0-9]|30)"
 log "管理 ttl 正数通过"
 
 CURRENT_STEP="管理 title 与 topic 创建"
-request POST "$BASE_URL" "{\"path\":\"$ADMIN_TOPIC\",\"type\":\"topic\",\"title\":\"Admin Topic Home\",\"created\":\"$CREATED_DATE_INPUT\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$ADMIN_TOPIC\",\"type\":\"topic\",\"title\":\"Admin Topic Home\",\"created\":\"$CREATED_DATE_INPUT\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"title\":\"Admin Topic Home\""
 expect_body_contains "\"created\":\"$CREATED_DATE_EXPECTED\""
 add_created_topic "$ADMIN_TOPIC"
-request POST "$BASE_URL/api/admin" "{\"topic\":\"$ADMIN_TOPIC\",\"path\":\"$ADMIN_TOPIC_CHILD\",\"title\":\"Admin Topic Title\",\"url\":\"topic body\",\"created\":\"$CREATED_DATETIME_INPUT\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"topic\":\"$ADMIN_TOPIC\",\"path\":\"$ADMIN_TOPIC_CHILD\",\"title\":\"Admin Topic Title\",\"url\":\"topic body\",\"created\":\"$CREATED_DATETIME_INPUT\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -334,19 +334,19 @@ expect_body_contains "\"path\":\"$ADMIN_TOPIC_PATH\""
 expect_body_contains "\"title\":\"Admin Topic Title\""
 expect_body_contains "\"created\":\"$CREATED_DATETIME_EXPECTED\""
 add_created_path "$ADMIN_TOPIC_PATH"
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_matches "\"path\":\"$ADMIN_TOPIC_PATH\"[^\n]*\"title\":\"Admin Topic Title\"[^\n]*\"created\":\"$CREATED_DATETIME_EXPECTED\""
 expect_body_matches "\"path\":\"$ADMIN_TOPIC\"[^\n]*\"title\":\"Admin Topic Home\"[^\n]*\"created\":\"$CREATED_DATE_EXPECTED\""
 log "管理 title 与 topic 通过"
 
 CURRENT_STEP="管理 topic 子项删除"
-request DELETE "$BASE_URL/api/admin" "{\"path\":\"$ADMIN_TOPIC_PATH\"}" \
+request POST "$BASE_URL/api/admin/delete" "{\"path\":\"$ADMIN_TOPIC_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
 remove_created_path "$ADMIN_TOPIC_PATH"
-request DELETE "$BASE_URL" "{\"path\":\"$ADMIN_TOPIC\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$ADMIN_TOPIC\",\"type\":\"topic\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -354,7 +354,7 @@ remove_created_topic "$ADMIN_TOPIC"
 log "管理 topic 子项删除通过"
 
 CURRENT_STEP="API 未鉴权校验"
-request POST "$BASE_URL" "{\"url\":\"https://example.com/unauthorized\"}" \
+request POST "$BASE_URL/create" "{\"url\":\"https://example.com/unauthorized\"}" \
   -H "Content-Type: application/json"
 expect_status 401
 log "API 未鉴权校验通过"
@@ -362,7 +362,7 @@ log "API 未鉴权校验通过"
 API_PATH="$(uniq_path api)"
 
 CURRENT_STEP="API 创建"
-request POST "$BASE_URL" "{\"path\":\"$API_PATH\",\"url\":\"https://example.com/api\",\"created\":\"$CREATED_DATE_INPUT\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$API_PATH\",\"url\":\"https://example.com/api\",\"created\":\"$CREATED_DATE_INPUT\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -372,19 +372,19 @@ add_created_path "$API_PATH"
 log "API 创建通过"
 
 CURRENT_STEP="API 列表"
-request GET "$BASE_URL" "" -H "$AUTH_HEADER"
+request POST "$BASE_URL/query" "{}" -H "$AUTH_HEADER"
 expect_status 200
 expect_body_matches "\"path\":\"$API_PATH\"[^\n]*\"created\":\"$CREATED_DATE_EXPECTED\""
 log "API 列表通过"
 
 CURRENT_STEP="API 更新保留 created"
-request PUT "$BASE_URL" "{\"path\":\"$API_PATH\",\"url\":\"https://example.com/api-updated\"}" \
+request POST "$BASE_URL/update" "{\"path\":\"$API_PATH\",\"url\":\"https://example.com/api-updated\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"path\":\"$API_PATH\""
 expect_body_contains "\"created\":\"$CREATED_DATE_EXPECTED\""
-request GET "$BASE_URL" "{\"path\":\"$API_PATH\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$API_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -393,7 +393,7 @@ expect_body_contains "\"created\":\"$CREATED_DATE_EXPECTED\""
 log "API 更新保留 created 通过"
 
 CURRENT_STEP="API 删除"
-request DELETE "$BASE_URL" "{\"path\":\"$API_PATH\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$API_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -401,13 +401,13 @@ remove_created_path "$API_PATH"
 log "API 删除通过"
 
 CURRENT_STEP="API 删除校验"
-request GET "$BASE_URL" "" -H "$AUTH_HEADER"
+request POST "$BASE_URL/query" "{}" -H "$AUTH_HEADER"
 expect_status 200
 expect_body_not_contains "\"path\":\"$API_PATH\""
 log "API 删除校验通过"
 
 CURRENT_STEP="API 超长路径校验"
-request POST "$BASE_URL" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -415,7 +415,7 @@ expect_json_error_message "path must be 1-99 characters"
 log "API 超长路径校验通过"
 
 CURRENT_STEP="API 非法路径校验"
-request POST "$BASE_URL" "{\"path\":\"$INVALID_PATH\",\"url\":\"https://example.com/invalid\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$INVALID_PATH\",\"url\":\"https://example.com/invalid\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -423,7 +423,7 @@ expect_json_error_message "path can only contain: a-z A-Z 0-9 - _ . / ( )"
 log "API 非法路径校验通过"
 
 CURRENT_STEP="API 斜杠路径创建"
-request POST "$BASE_URL" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/api/nested\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/api/nested\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -432,7 +432,7 @@ add_created_path "$SLASH_PATH"
 log "API 斜杠路径创建通过"
 
 CURRENT_STEP="API 斜杠路径查询"
-request GET "$BASE_URL" "{\"path\":\"$SLASH_PATH\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"$SLASH_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -440,7 +440,7 @@ expect_body_contains "\"path\":\"$SLASH_PATH\""
 log "API 斜杠路径查询通过"
 
 CURRENT_STEP="API 斜杠路径更新"
-request PUT "$BASE_URL" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/api/nested-updated\"}" \
+request POST "$BASE_URL/update" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/api/nested-updated\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -449,7 +449,7 @@ expect_body_contains "\"overwritten\":\"https://example"
 log "API 斜杠路径更新通过"
 
 CURRENT_STEP="API 斜杠路径列表"
-request GET "$BASE_URL" "" -H "$AUTH_HEADER"
+request POST "$BASE_URL/query" "{}" -H "$AUTH_HEADER"
 expect_status 200
 expect_body_contains "\"path\":\"$SLASH_PATH\""
 log "API 斜杠路径列表通过"
@@ -461,7 +461,7 @@ expect_location "https://example.com/api/nested-updated"
 log "公开斜杠路径访问通过"
 
 CURRENT_STEP="API 双层路径创建"
-request POST "$BASE_URL" "{\"path\":\"$DOUBLE_SLASH_PATH\",\"url\":\"https://example.com/api/two-level\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$DOUBLE_SLASH_PATH\",\"url\":\"https://example.com/api/two-level\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -476,7 +476,7 @@ expect_location "https://example.com/api/two-level"
 log "公开双层路径访问通过"
 
 CURRENT_STEP="API 三层路径创建"
-request POST "$BASE_URL" "{\"path\":\"$TRIPLE_SLASH_PATH\",\"url\":\"https://example.com/api/three-level\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TRIPLE_SLASH_PATH\",\"url\":\"https://example.com/api/three-level\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -491,7 +491,7 @@ expect_location "https://example.com/api/three-level"
 log "公开三层路径访问通过"
 
 CURRENT_STEP="API 斜杠路径删除"
-request DELETE "$BASE_URL" "{\"path\":\"$SLASH_PATH\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$SLASH_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -499,7 +499,7 @@ remove_created_path "$SLASH_PATH"
 log "API 斜杠路径删除通过"
 
 CURRENT_STEP="API 双层路径删除"
-request DELETE "$BASE_URL" "{\"path\":\"$DOUBLE_SLASH_PATH\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$DOUBLE_SLASH_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -507,7 +507,7 @@ remove_created_path "$DOUBLE_SLASH_PATH"
 log "API 双层路径删除通过"
 
 CURRENT_STEP="API 三层路径删除"
-request DELETE "$BASE_URL" "{\"path\":\"$TRIPLE_SLASH_PATH\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$TRIPLE_SLASH_PATH\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -515,19 +515,19 @@ remove_created_path "$TRIPLE_SLASH_PATH"
 log "API 三层路径删除通过"
 
 CURRENT_STEP="API 斜杠路径删除校验"
-request GET "$BASE_URL" "" -H "$AUTH_HEADER"
+request POST "$BASE_URL/query" "{}" -H "$AUTH_HEADER"
 expect_status 200
 expect_body_not_contains "\"path\":\"$SLASH_PATH\""
 log "API 斜杠路径删除校验通过"
 
 CURRENT_STEP="API 路径会规范化首尾斜杠"
-request POST "$BASE_URL" "{\"path\":\"$API_NORMALIZED_PATH_INPUT\",\"url\":\"https://example.com/api-normalized\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$API_NORMALIZED_PATH_INPUT\",\"url\":\"https://example.com/api-normalized\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$API_NORMALIZED_PATH\""
 add_created_path "$API_NORMALIZED_PATH"
-request GET "$BASE_URL" "{\"path\":\"//$API_NORMALIZED_PATH//\"}" \
+request POST "$BASE_URL/query" "{\"path\":\"//$API_NORMALIZED_PATH//\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -535,7 +535,7 @@ expect_body_contains "\"path\":\"$API_NORMALIZED_PATH\""
 request GET "$BASE_URL/$API_NORMALIZED_PATH/" ""
 expect_status 302
 expect_location "https://example.com/api-normalized"
-request DELETE "$BASE_URL" "{\"path\":\"//$API_NORMALIZED_PATH//\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"//$API_NORMALIZED_PATH//\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -557,7 +557,7 @@ TOPIC_QR_CHILD="entry-qr"
 TOPIC_QR_PATH="$TOPIC_RENDER_PATH/$TOPIC_QR_CHILD"
 
 CURRENT_STEP="公开跳转通过"
-request POST "$BASE_URL" "{\"path\":\"$REDIRECT_PATH\",\"url\":\"https://example.com/public\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$REDIRECT_PATH\",\"url\":\"https://example.com/public\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -568,7 +568,7 @@ expect_location "https://example.com/public"
 log "公开跳转通过"
 
 CURRENT_STEP="公开 file url trim 跳转通过"
-request POST "$BASE_URL" "{\"path\":\"$FILE_URL_PATH\",\"url\":\"  file:///tmp/post-functional.txt  \",\"type\":\"url\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$FILE_URL_PATH\",\"url\":\"  file:///tmp/post-functional.txt  \",\"type\":\"url\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -579,7 +579,7 @@ expect_location "file:///tmp/post-functional.txt"
 log "公开 file url trim 跳转通过"
 
 CURRENT_STEP="公开 mailto url 跳转通过"
-request POST "$BASE_URL" "{\"path\":\"$MAILTO_URL_PATH\",\"url\":\"mailto:functional@example.com\",\"type\":\"url\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$MAILTO_URL_PATH\",\"url\":\"mailto:functional@example.com\",\"type\":\"url\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -590,7 +590,7 @@ expect_location "mailto:functional@example.com"
 log "公开 mailto url 跳转通过"
 
 CURRENT_STEP="公开非法 url 拒绝存储"
-request POST "$BASE_URL" "{\"path\":\"$INVALID_URL_PATH\",\"url\":\" example.com \",\"type\":\"url\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$INVALID_URL_PATH\",\"url\":\" example.com \",\"type\":\"url\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -598,7 +598,7 @@ expect_json_error_message '`url` must be a valid absolute URL with a scheme'
 log "公开非法 url 拒绝存储通过"
 
 CURRENT_STEP="公开 text 展示通过"
-request POST "$BASE_URL" "{\"path\":\"$TEXT_PATH\",\"url\":\"plain text body\",\"type\":\"text\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TEXT_PATH\",\"url\":\"plain text body\",\"type\":\"text\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -610,7 +610,7 @@ expect_body_contains 'plain text body'
 log "公开 text 展示通过"
 
 CURRENT_STEP="公开 html 展示通过"
-request POST "$BASE_URL" "{\"path\":\"$HTML_PATH\",\"url\":\"<h1>hello</h1>\",\"type\":\"html\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$HTML_PATH\",\"url\":\"<h1>hello</h1>\",\"type\":\"html\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -622,23 +622,23 @@ expect_body_contains '<h1>hello</h1>'
 log "公开 html 展示通过"
 
 CURRENT_STEP="Markdown alias 按原文入库并公开渲染"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$MD_ALIAS_PATH\",\"url\":\"# Hello\\n\\nBody line\",\"type\":\"md2html\",\"title\":\"Markdown Alias\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$MD_ALIAS_PATH\",\"url\":\"# Hello\\n\\nBody line\",\"type\":\"md2html\",\"title\":\"Markdown Alias\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$MD_ALIAS_PATH\""
 expect_body_contains "\"type\":\"md\""
 add_created_path "$MD_ALIAS_PATH"
-request GET "$BASE_URL/api/admin" "{\"path\":\"$MD_ALIAS_PATH\"}" \
+request POST "$BASE_URL/api/admin/query" "{\"path\":\"$MD_ALIAS_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"type\":\"md\""
 expect_body_contains '# Hello'
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_matches "\"path\":\"$MD_ALIAS_PATH\"[^\n]*\"type\":\"md\""
-request GET "$BASE_URL/api/admin" "{\"path\":\"$MD_ALIAS_PATH\"}" \
+request POST "$BASE_URL/api/admin/query" "{\"path\":\"$MD_ALIAS_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json" \
   -H "x-export: true"
@@ -653,23 +653,23 @@ expect_body_contains '<h1 id="hello">Hello</h1>'
 log "Markdown alias 通过"
 
 CURRENT_STEP="QRCode 按原文入库并公开渲染"
-request POST "$BASE_URL/api/admin" "{\"path\":\"$QRCODE_PATH\",\"url\":\"https://example.com/qr-source\",\"type\":\"qrcode\",\"title\":\"QRCode Entry\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"path\":\"$QRCODE_PATH\",\"url\":\"https://example.com/qr-source\",\"type\":\"qrcode\",\"title\":\"QRCode Entry\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$QRCODE_PATH\""
 expect_body_contains "\"type\":\"qrcode\""
 add_created_path "$QRCODE_PATH"
-request GET "$BASE_URL/api/admin" "{\"path\":\"$QRCODE_PATH\"}" \
+request POST "$BASE_URL/api/admin/query" "{\"path\":\"$QRCODE_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"type\":\"qrcode\""
 expect_body_contains 'https://example...'
-request GET "$BASE_URL/api/admin" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_matches "\"path\":\"$QRCODE_PATH\"[^\n]*\"type\":\"qrcode\""
-request GET "$BASE_URL/api/admin" "{\"path\":\"$QRCODE_PATH\"}" \
+request POST "$BASE_URL/api/admin/query" "{\"path\":\"$QRCODE_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json" \
   -H "x-export: true"
@@ -683,19 +683,19 @@ expect_body_contains 'Scan this QR code'
 log "QRCode 通过"
 
 CURRENT_STEP="topic 子项保留真实类型并公开渲染"
-request POST "$BASE_URL" "{\"path\":\"$TOPIC_RENDER_PATH\",\"type\":\"topic\",\"title\":\"Render Topic\"}" \
+request POST "$BASE_URL/create" "{\"path\":\"$TOPIC_RENDER_PATH\",\"type\":\"topic\",\"title\":\"Render Topic\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 201
 add_created_topic "$TOPIC_RENDER_PATH"
-request POST "$BASE_URL/api/admin" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_MD_CHILD\",\"url\":\"# Topic Markdown\",\"type\":\"md2html\",\"title\":\"Topic Markdown\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_MD_CHILD\",\"url\":\"# Topic Markdown\",\"type\":\"md2html\",\"title\":\"Topic Markdown\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$TOPIC_MD_PATH\""
 expect_body_contains "\"type\":\"md\""
 add_created_path "$TOPIC_MD_PATH"
-request POST "$BASE_URL/api/admin" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_QR_CHILD\",\"url\":\"https://example.com/topic-qr\",\"type\":\"qrcode\",\"title\":\"Topic QR\"}" \
+request POST "$BASE_URL/api/admin/create" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_QR_CHILD\",\"url\":\"https://example.com/topic-qr\",\"type\":\"qrcode\",\"title\":\"Topic QR\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -714,7 +714,7 @@ expect_status 200
 expect_header_contains '^content-type: text/html'
 expect_body_contains "href=\"/$TOPIC_RENDER_PATH\""
 expect_body_contains '<strong>Home</strong>'
-request DELETE "$BASE_URL" "{\"path\":\"$TOPIC_RENDER_PATH\",\"type\":\"topic\"}" \
+request POST "$BASE_URL/delete" "{\"path\":\"$TOPIC_RENDER_PATH\",\"type\":\"topic\"}" \
   -H "$AUTH_HEADER" \
   -H "Content-Type: application/json"
 expect_status 200

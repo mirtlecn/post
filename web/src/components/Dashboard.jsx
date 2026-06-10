@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiRequest } from '../lib/api.js';
+import { apiRequest, deleteRequest } from '../lib/api.js';
 import { sortItems } from '../config.js';
 import { icons } from '../icons/Icons.jsx';
 import { filterDashboardItems, TOPIC_STORAGE_KEY } from '../lib/topic-filter.js';
@@ -43,7 +43,7 @@ export function Dashboard({ onLogout }) {
     try {
       const body = { path: item.path };
       if (item.type === 'topic') body.type = 'topic';
-      await apiRequest({ method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      await deleteRequest({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       setItems((v) => v.filter((entry) => entry.path !== item.path));
       showToast('success', 'Deleted');
     } catch (error) {

@@ -59,7 +59,7 @@ export function selectEdgeOneHandler(pathname, handlers) {
     return handlers.handleAdminSession;
   }
 
-  if (pathname === '/api/admin') {
+  if (pathname === '/api/admin' || pathname.startsWith('/api/admin/')) {
     return handlers.handleAdmin;
   }
 

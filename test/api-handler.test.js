@@ -1,38 +1,52 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApiHandler } from '../api/index.js';
+import { createAdminApiHandler } from '../api/admin.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
-test('createApiHandler rejects unauthenticated write requests', async () => {
+test('createApiHandler rejects unauthenticated action requests', async () => {
   const handler = createApiHandler({
     authenticate: () => false,
+    onPublicGet: async () => {
+      throw new Error('public handler should not run');
+    },
   });
   const response = createMockResponse();
 
-  await handler(createMockRequest({ method: 'POST' }), response);
+  await handler(createMockRequest({ method: 'POST', url: '/create' }), response);
 
   assert.equal(response.statusCode, 401);
   assert.match(response.body, /Unauthorized/);
 });
 
-test('createApiHandler routes authenticated lookup before list', async () => {
+test('createApiHandler routes POST action paths', async () => {
   const calls = [];
   const handler = createApiHandler({
     authenticate: () => true,
+    onCreate: async () => {
+      calls.push('create');
+    },
+    onReplace: async () => {
+      calls.push('replace');
+    },
+    onDelete: async () => {
+      calls.push('delete');
+    },
     onLookup: async () => {
       calls.push('lookup');
       return true;
     },
-    onList: async () => {
-      calls.push('list');
-    },
   });
 
-  await handler(createMockRequest({ method: 'GET' }), createMockResponse());
-  assert.deepEqual(calls, ['lookup']);
+  await handler(createMockRequest({ method: 'POST', url: '/create' }), createMockResponse());
+  await handler(createMockRequest({ method: 'POST', url: '/update' }), createMockResponse());
+  await handler(createMockRequest({ method: 'POST', url: '/delete' }), createMockResponse());
+  await handler(createMockRequest({ method: 'POST', url: '/query' }), createMockResponse());
+
+  assert.deepEqual(calls, ['create', 'replace', 'delete', 'lookup']);
 });
 
-test('createApiHandler falls back to list when authenticated lookup does not handle', async () => {
+test('createApiHandler query action falls back to list when lookup does not handle', async () => {
   const calls = [];
   const handler = createApiHandler({
     authenticate: () => true,
@@ -45,20 +59,24 @@ test('createApiHandler falls back to list when authenticated lookup does not han
     },
   });
 
-  await handler(createMockRequest({ method: 'GET' }), createMockResponse());
+  await handler(createMockRequest({ method: 'POST', url: '/query' }), createMockResponse());
   assert.deepEqual(calls, ['lookup', 'list']);
 });
 
-test('createApiHandler routes unauthenticated get to public handler', async () => {
+test('createApiHandler routes GET to public handler even when authenticated', async () => {
   const calls = [];
   const handler = createApiHandler({
-    authenticate: () => false,
+    authenticate: () => true,
+    onLookup: async () => {
+      calls.push('lookup');
+      return true;
+    },
     onPublicGet: async () => {
       calls.push('public');
     },
   });
 
-  await handler(createMockRequest({ method: 'GET' }), createMockResponse());
+  await handler(createMockRequest({ method: 'GET', url: '/query' }), createMockResponse());
   assert.deepEqual(calls, ['public']);
 });
 
@@ -72,4 +90,48 @@ test('createApiHandler routes head requests to public handler', async () => {
 
   await handler(createMockRequest({ method: 'HEAD' }), createMockResponse());
   assert.deepEqual(calls, ['public']);
+});
+
+test('createApiHandler disables legacy root management methods', async () => {
+  const calls = [];
+  const handler = createApiHandler({
+    authenticate: () => true,
+    onCreate: async () => calls.push('create'),
+    onReplace: async () => calls.push('replace'),
+    onDelete: async () => calls.push('delete'),
+  });
+
+  for (const method of ['POST', 'PUT', 'DELETE']) {
+    const response = createMockResponse();
+    await handler(createMockRequest({ method, url: '/' }), response);
+    assert.equal(response.statusCode, 405);
+  }
+
+  assert.deepEqual(calls, []);
+});
+
+test('createApiHandler rejects non-action POST paths without public fallback', async () => {
+  const calls = [];
+  const handler = createApiHandler({
+    authenticate: () => true,
+    onCreate: async () => calls.push('create'),
+    onPublicGet: async () => calls.push('public'),
+  });
+  const response = createMockResponse();
+
+  await handler(createMockRequest({ method: 'POST', url: '/not-an-action' }), response);
+
+  assert.equal(response.statusCode, 405);
+  assert.deepEqual(calls, []);
+});
+
+test('createAdminApiHandler rejects legacy admin root data endpoint', async () => {
+  const handler = createAdminApiHandler({
+    authenticate: async () => true,
+  });
+  const response = createMockResponse();
+
+  await handler(createMockRequest({ method: 'POST', url: '/api/admin' }), response);
+
+  assert.equal(response.statusCode, 405);
 });
