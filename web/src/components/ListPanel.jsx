@@ -5,7 +5,7 @@ import { ListPanelRow } from './ListPanelRow.jsx';
 
 const LOAD_MORE_THRESHOLD_PX = 80;
 
-export function ListPanel({ items, onCopy, onDelete }) {
+export function ListPanel({ items, onCopy, onDelete, onEdit }) {
   const [confirmPath, setConfirmPath] = useState('');
   const [deletingPath, setDeletingPath] = useState('');
   const [copiedPath, setCopiedPath] = useState('');
@@ -124,7 +124,7 @@ export function ListPanel({ items, onCopy, onDelete }) {
   const tableClassName = isMobile ? 'table table-zebra w-full' : 'table table-zebra table-fixed w-full';
   const pathColumnClassName = isMobile ? 'w-[10rem] max-w-[10rem]' : 'w-[18rem] max-w-[18rem]';
   const metaColumnClassName = isMobile ? 'w-[8.5rem] max-w-[8.5rem]' : 'w-[12rem] max-w-[12rem]';
-  const actionColumnClassName = isMobile ? 'w-[8rem] text-right' : 'w-[11rem] text-right';
+  const actionColumnClassName = isMobile ? 'w-[10rem] text-right' : 'w-[13rem] text-right';
   const previewColumnClassName = isMobile ? 'min-w-[8rem] max-w-[10rem] truncate text-base-content/62' : 'max-w-md truncate text-base-content/62';
 
   return (
@@ -156,6 +156,7 @@ export function ListPanel({ items, onCopy, onDelete }) {
                 metaColumnClassName={metaColumnClassName}
                 onConfirmDelete={confirmDelete}
                 onCopyLink={copyLink}
+                onEdit={onEdit}
                 onOpenLink={(surl) => {
                   setConfirmPath('');
                   window.open(surl, '_blank', 'noreferrer');

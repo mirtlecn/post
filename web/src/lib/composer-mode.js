@@ -4,6 +4,7 @@ const TOPIC_LABEL_MAX_CHARS = 16;
 const PATH_SANITIZE_PATTERN = /[^a-zA-Z0-9_.\-()/]/g;
 const CREATED_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CREATED_TIME_PATTERN = /^\d{2}:\d{2}$/;
+const EDITABLE_CONVERT_TYPES = new Set(['url', 'text', 'html', 'qrcode']);
 
 /**
  * @typedef {object} ComposerForm
@@ -78,6 +79,83 @@ export function buildRestoredForm(snapshot, fallbackTopic = '') {
     topic: snapshot.topic ?? fallbackTopic,
     ttl: snapshot.ttl || '',
     content: snapshot.content || snapshot.url || '',
+  };
+}
+
+function padDatePart(value) {
+  return String(value).padStart(2, '0');
+}
+
+export function splitCreatedForComposer(created) {
+  if (!created || created === 'illegal') {
+    return { createdDate: '', createdTime: '' };
+  }
+
+  const date = new Date(created);
+  if (Number.isNaN(date.getTime())) {
+    return { createdDate: '', createdTime: '' };
+  }
+
+  return {
+    createdDate: `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`,
+    createdTime: `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`,
+  };
+}
+
+function normalizeEditConvertType(type) {
+  if (type === 'md') return 'md2html';
+  if (EDITABLE_CONVERT_TYPES.has(type)) return type;
+  return 'none';
+}
+
+function resolveItemTopic(path, topics = []) {
+  return topics
+    .map((topic) => topic?.path || '')
+    .filter((topicPath) => topicPath && path.startsWith(`${topicPath}/`))
+    .sort((a, b) => b.length - a.length)[0] || '';
+}
+
+function formatRemainingTtl(ttl) {
+  if (typeof ttl !== 'number' || Number.isNaN(ttl) || ttl <= 0) {
+    return '';
+  }
+
+  return String(Math.ceil(ttl));
+}
+
+export function buildEditComposerSnapshot(item, topics = []) {
+  const type = item?.type || 'text';
+  const path = item?.path || '';
+  const { createdDate, createdTime } = splitCreatedForComposer(item?.created);
+  const metaOpen = Boolean(item?.title || createdDate);
+
+  if (type === TOPIC_CREATE_TYPE) {
+    return {
+      convert: TOPIC_CREATE_TYPE,
+      path: '',
+      title: item?.title || '',
+      createdDate,
+      createdTime,
+      topic: '',
+      ttl: '',
+      content: path,
+      metaOpen,
+    };
+  }
+
+  const topic = resolveItemTopic(path, topics);
+  const relativePath = topic ? path.slice(topic.length + 1) : path;
+
+  return {
+    convert: normalizeEditConvertType(type),
+    path: relativePath,
+    title: item?.title || '',
+    createdDate,
+    createdTime,
+    topic,
+    ttl: formatRemainingTtl(item?.ttl),
+    content: type === 'file' ? '' : (item?.content || ''),
+    metaOpen,
   };
 }
 

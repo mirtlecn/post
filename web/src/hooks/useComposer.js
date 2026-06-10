@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createRequest, uploadFile } from '../lib/api.js';
+import { createRequest, updateFile, updateRequest, uploadFile } from '../lib/api.js';
 import {
   buildFileUploadData,
   buildInitialForm,
@@ -12,6 +12,15 @@ import {
   normalizeTopicNameValue,
   normalizeTtlValue,
 } from '../lib/composer-mode.js';
+
+function isConflictError(error) {
+  return error?.status === 409 && error?.payload?.code === 'conflict';
+}
+
+function confirmOverwrite(error) {
+  const message = error?.payload?.message || 'Path already exists';
+  return window.confirm(`${message}\n\nOverwrite it?`);
+}
 
 function getFileMeta(file) {
   if (!file) return null;
@@ -48,11 +57,25 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     event.preventDefault();
     setBusy(true);
     try {
-      const payload = file ? await submitFile() : await submitText();
+      const payload = await submitMutation();
       await onCreated(payload);
       reset(resetForm);
       return true;
     } catch (error) {
+      if (isConflictError(error)) {
+        if (!confirmOverwrite(error)) {
+          return false;
+        }
+        try {
+          const payload = await submitMutation({ allowOverwrite: true });
+          await onCreated(payload);
+          reset(resetForm);
+          return true;
+        } catch (overwriteError) {
+          notify('error', overwriteError.message);
+          return false;
+        }
+      }
       notify('error', error.message);
       return false;
     } finally {
@@ -60,18 +83,23 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     }
   }
 
-  async function submitFile() {
+  async function submitMutation({ allowOverwrite = false } = {}) {
+    return file ? submitFile({ allowOverwrite }) : submitText({ allowOverwrite });
+  }
+
+  async function submitFile({ allowOverwrite = false } = {}) {
     const data = buildFileUploadData(form, file);
-    const payload = await uploadFile(data);
-    notify('success', 'Uploaded');
+    const payload = await (allowOverwrite ? updateFile(data) : uploadFile(data));
+    notify('success', allowOverwrite ? 'Updated' : 'Uploaded');
     return payload;
   }
 
-  async function submitText() {
+  async function submitText({ allowOverwrite = false } = {}) {
     if (!form.content.trim()) throw new Error('Content is required');
     const body = buildTextRequestBody(form);
-    const payload = await createRequest({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    notify('success', 'Created');
+    const request = allowOverwrite ? updateRequest : createRequest;
+    const payload = await request({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    notify('success', allowOverwrite ? 'Updated' : 'Created');
     return payload;
   }
 

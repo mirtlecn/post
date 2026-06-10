@@ -32,6 +32,18 @@ export async function apiRequest(init = {}) {
   }, 'Request failed');
 }
 
+export async function lookupItem(path, type = '') {
+  const body = { path };
+  if (type) body.type = type;
+  return apiRequest({
+    headers: {
+      'Content-Type': 'application/json',
+      'x-export': 'true',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 export async function uploadFile(formData) {
   return requestJson(`${API_ROOT}/create`, {
     method: 'POST',
@@ -39,11 +51,25 @@ export async function uploadFile(formData) {
   }, 'Upload failed');
 }
 
+export async function updateFile(formData) {
+  return requestJson(`${API_ROOT}/update`, {
+    method: 'POST',
+    body: formData,
+  }, 'Update failed');
+}
+
 export async function createRequest(init = {}) {
   return requestJson(`${API_ROOT}/create`, {
     method: 'POST',
     ...init,
   }, 'Request failed');
+}
+
+export async function updateRequest(init = {}) {
+  return requestJson(`${API_ROOT}/update`, {
+    method: 'POST',
+    ...init,
+  }, 'Update failed');
 }
 
 export async function deleteRequest(init = {}) {

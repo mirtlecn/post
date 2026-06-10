@@ -25,6 +25,7 @@ export function ListPanelRow({
   item,
   onConfirmDelete,
   onCopyLink,
+  onEdit,
   onOpenLink,
   pathColumnClassName,
   previewColumnClassName,
@@ -62,6 +63,7 @@ export function ListPanelRow({
       <td className={previewColumnClassName} title={item.content}>{item.content}</td>
       <td className="overflow-visible">
         <div className="flex justify-end gap-1.5 overflow-visible">
+          <IconButton icon={icons.edit} onClick={() => onEdit(item)} title="Edit" tooltip={actionTooltip} />
           <IconButton icon={icons.open} onClick={() => onOpenLink(item.surl)} title="Open" tooltip={actionTooltip} />
           <IconButton
             className={copiedPath === item.path ? 'text-success' : ''}

@@ -12,6 +12,7 @@ import {
   Hash,
   Link2,
   LogOut,
+  Pencil,
   QrCode,
   RefreshCw,
   SendHorizontal,
@@ -44,4 +45,5 @@ export const icons = {
   chevronDown: ChevronDown,
   check: Check,
   delete: Trash2,
+  edit: Pencil,
 };

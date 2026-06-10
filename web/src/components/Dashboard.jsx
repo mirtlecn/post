@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiRequest, deleteRequest } from '../lib/api.js';
+import { apiRequest, deleteRequest, lookupItem } from '../lib/api.js';
 import { sortItems } from '../config.js';
 import { icons } from '../icons/Icons.jsx';
+import { buildEditComposerSnapshot } from '../lib/composer-mode.js';
 import { filterDashboardItems, TOPIC_STORAGE_KEY } from '../lib/topic-filter.js';
 import { useToast } from '../hooks/useToast.js';
 import { CreatePanel } from './CreatePanel.jsx';
@@ -16,6 +17,7 @@ export function Dashboard({ onLogout }) {
   const [result, setResult] = useState(null);
   const [selectedTopicPath, setSelectedTopicPath] = useState('');
   const [composerType, setComposerType] = useState('none');
+  const [editRequest, setEditRequest] = useState(null);
   const { toast, showToast, clearToast } = useToast();
 
   const loadItems = useCallback(async () => {
@@ -61,6 +63,20 @@ export function Dashboard({ onLogout }) {
     }
   }, [showToast]);
 
+  const topics = useMemo(() => items.filter((item) => item.type === 'topic'), [items]);
+
+  const edit = useCallback(async (item) => {
+    try {
+      const fullItem = await lookupItem(item.path, item.type === 'topic' ? 'topic' : '');
+      const snapshot = buildEditComposerSnapshot(fullItem, topics);
+      setSelectedTopicPath(snapshot.topic);
+      setEditRequest({ id: `${fullItem.path}:${Date.now()}`, snapshot });
+      showToast('success', fullItem.type === 'file' ? 'Select a file to overwrite this file entry' : 'Loaded');
+    } catch (error) {
+      showToast('error', error.message);
+    }
+  }, [showToast, topics]);
+
   const created = useCallback(async (payload) => {
     setResult(payload);
     await loadItems();
@@ -70,7 +86,6 @@ export function Dashboard({ onLogout }) {
     await loadItems();
   }, [loadItems]);
 
-  const topics = useMemo(() => items.filter((item) => item.type === 'topic'), [items]);
   const filteredItems = useMemo(
     () => filterDashboardItems(items, { selectedTopicPath, createType: composerType }),
     [items, selectedTopicPath, composerType],
@@ -108,6 +123,7 @@ export function Dashboard({ onLogout }) {
       </header>
       <CreatePanel
         notify={showToast}
+        editRequest={editRequest}
         onCreated={created}
         onModeChange={setComposerType}
         selectedTopicPath={selectedTopicPath}
@@ -136,7 +152,7 @@ export function Dashboard({ onLogout }) {
           </div>
         </section>
       ) : (
-        filteredItems.length > 0 && <ListPanel items={filteredItems} onCopy={copy} onDelete={remove} />
+        filteredItems.length > 0 && <ListPanel items={filteredItems} onCopy={copy} onDelete={remove} onEdit={edit} />
       )}
       <ToastLayer onClose={clearToast} toast={toast} />
     </section>

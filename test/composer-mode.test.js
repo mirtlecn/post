@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TOPIC_CREATE_TYPE,
+  buildEditComposerSnapshot,
   buildCreatedValue,
   buildFileUploadData,
   buildInitialForm,
@@ -12,6 +13,7 @@ import {
   formatTopicLabel,
   getComposerUiState,
   normalizeTopicNameValue,
+  splitCreatedForComposer,
 } from '../web/src/lib/composer-mode.js';
 
 test('normalizeTopicNameValue matches path rules, strips newlines, and rejects a leading slash', () => {
@@ -110,6 +112,61 @@ test('buildRestoredForm rebuilds a saved composer snapshot', () => {
       topic: 'anime',
       ttl: '30',
       content: '# heading',
+    },
+  );
+});
+
+test('splitCreatedForComposer converts valid timestamps into local date and minute fields', () => {
+  const fields = splitCreatedForComposer('2026-03-20T08:09:30Z');
+  assert.match(fields.createdDate, /^\d{4}-\d{2}-\d{2}$/);
+  assert.match(fields.createdTime, /^\d{2}:\d{2}$/);
+  assert.deepEqual(splitCreatedForComposer('illegal'), { createdDate: '', createdTime: '' });
+});
+
+test('buildEditComposerSnapshot rebuilds topic-relative text entries', () => {
+  assert.deepEqual(
+    buildEditComposerSnapshot({
+      path: 'post/demo',
+      type: 'md',
+      title: 'Demo',
+      created: '2026-03-20T08:09:00Z',
+      ttl: 29,
+      content: '# Demo',
+    }, [{ path: 'post' }]),
+    {
+      convert: 'md2html',
+      path: 'demo',
+      title: 'Demo',
+      createdDate: splitCreatedForComposer('2026-03-20T08:09:00Z').createdDate,
+      createdTime: splitCreatedForComposer('2026-03-20T08:09:00Z').createdTime,
+      topic: 'post',
+      ttl: '29',
+      content: '# Demo',
+      metaOpen: true,
+    },
+  );
+});
+
+test('buildEditComposerSnapshot rebuilds topic entries and clears ttl', () => {
+  assert.deepEqual(
+    buildEditComposerSnapshot({
+      path: 'post',
+      type: TOPIC_CREATE_TYPE,
+      title: 'Post',
+      created: '',
+      ttl: 30,
+      content: '12',
+    }, []),
+    {
+      convert: TOPIC_CREATE_TYPE,
+      path: '',
+      title: 'Post',
+      createdDate: '',
+      createdTime: '',
+      topic: '',
+      ttl: '',
+      content: 'post',
+      metaOpen: true,
     },
   );
 });

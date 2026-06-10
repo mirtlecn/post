@@ -13,6 +13,7 @@ export function CreatePanel(props) {
   const [topicOpen, setTopicOpen] = useState(false);
   const [metaOpen, setMetaOpen] = useState(() => Boolean(props.initialMetaOpen));
   const [ttlFocused, setTtlFocused] = useState(false);
+  const panelRef = useRef(null);
   const topicRef = useRef(null);
   const createdDateRef = useRef(null);
   const createdTimeRef = useRef(null);
@@ -65,6 +66,21 @@ export function CreatePanel(props) {
     setTtlFocused(false);
   }, [ttlDisabled]);
 
+  useEffect(() => {
+    if (!props.editRequest) return;
+
+    const { snapshot } = props.editRequest;
+    composer.restoreForm(snapshot);
+    setMetaOpen(Boolean(snapshot.metaOpen));
+    setTtlFocused(false);
+    if (snapshot.topic !== props.selectedTopicPath) {
+      props.onTopicChange?.(snapshot.topic);
+    }
+    requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [props.editRequest?.id]);
+
   function openNativePicker(input) {
     if (!input) return;
     input.focus();
@@ -115,7 +131,7 @@ export function CreatePanel(props) {
   }
 
   return (
-    <section className="panel-box composer-panel">
+    <section className="panel-box composer-panel" ref={panelRef}>
       <div className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">New</div>
       <form className="grid gap-3 animate-fade-up" onSubmit={onSubmit}>
         <ComposerEditor
