@@ -102,13 +102,10 @@ npm start
 
 ## Testing
 
-- `npm test`: default local regression chain. Runs `test:quick`, `test:smoke:web:local`, and `test:smoke:api:local`.
-- `npm run test:all`: compatibility alias for `npm test`.
-- `npm run test:quick`: runs only the unit test suite.
-- `npm run test:smoke:local`: runs the local admin/web smoke suite and the local API smoke suite.
-- `npm run test:smoke:web:local`: starts the local app with a dedicated Redis DB and exercises `/admin`, `/api/admin/*`, and the main JSON API action paths with shell assertions.
-- `npm run test:smoke:api:local`: starts the local app with a dedicated Redis DB and runs the API-focused smoke suite in [test/functional/smoke-api.sh](test/functional/smoke-api.sh).
-- `npm run test:smoke:web:vercel`: reserved for environments where `vercel dev` is available. It is not part of the default test chain.
+- `npm test`: runs the full local regression chain: unit tests, local admin/web smoke, and local API smoke.
+- `npm run test:unit`: runs only the Node unit test suite.
+- `npm run test:smoke`: runs the two local smoke suites without unit tests.
+- `npm run test:vercel`: runs the Vercel smoke suite with `vercel dev`. It is intentionally separate from the local regression chain.
 
 ## Credits
 

@@ -82,39 +82,29 @@ npm test
 
 Runs:
 
-- `npm run test:quick`
-- `npm run test:smoke:web:local`
-- `npm run test:smoke:api:local`
+- `node --test`
+- `bash test/functional/run-local.sh`
+- `bash test/functional/run-api-local.sh`
 
 ### Other useful test commands
 
 ```bash
-# Quick unit suite only
-npm run test:quick
-
-# Unit tests only
+# Unit tests
 npm run test:unit
 
-# Both local smoke suites
-npm run test:smoke:local
+# Local smoke suites
+npm run test:smoke
 
-# Admin/web smoke suite only
-npm run test:smoke:web:local
-
-# API smoke suite only
-npm run test:smoke:api:local
-
-# Everything local
-npm run test:all
+# Vercel smoke suite
+npm run test:vercel
 ```
 
 Notes:
 
-- `test:quick` runs only `node --test`.
-- `test:smoke:local` runs both local smoke suites without re-running unit tests.
-- `test:smoke:web:local` covers `/admin`, `/api/admin`, and main JSON API flows using shell assertions.
-- `test:smoke:api:local` is the deeper API contract smoke suite.
-- `test:smoke:web:vercel` is optional and should not be added to the default chain unless the environment is known to have `vercel dev`.
+- `test:unit` runs only `node --test`.
+- `test:smoke` runs both local smoke suites without re-running unit tests.
+- `test:vercel` is optional and must stay outside the default local chain unless the environment is known to have `vercel dev`.
+- To run only one local smoke suite, call `bash test/functional/run-local.sh` or `bash test/functional/run-api-local.sh` directly.
 
 ## Testing Conventions
 
