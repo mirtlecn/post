@@ -3,6 +3,25 @@ import assert from 'node:assert/strict';
 import { convertMarkdownToHtml } from '../lib/utils/converter.js';
 import { getEmbeddedAssetUrl } from '../lib/assets/index.js';
 
+function withFooterEnv(value, callback) {
+  const previousValue = process.env.FOOTER;
+  if (value === undefined) {
+    delete process.env.FOOTER;
+  } else {
+    process.env.FOOTER = value;
+  }
+
+  try {
+    return callback();
+  } finally {
+    if (previousValue === undefined) {
+      delete process.env.FOOTER;
+    } else {
+      process.env.FOOTER = previousValue;
+    }
+  }
+}
+
 test('convertMarkdownToHtml writes page title and topic backlink', () => {
   const html = convertMarkdownToHtml('# Hello', {
     pageTitle: 'Anime Archive',
@@ -63,4 +82,50 @@ test('convertMarkdownToHtml injects embedded toc assets when enough headings exi
 
   assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm_addon_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm_addon_js').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+});
+
+test('convertMarkdownToHtml omits footer when FOOTER is unset or blank', () => {
+  withFooterEnv(undefined, () => {
+    const html = convertMarkdownToHtml('# Hello');
+
+    assert.doesNotMatch(html, /post-footer/);
+  });
+
+  withFooterEnv('  \n\t  ', () => {
+    const html = convertMarkdownToHtml('# Hello');
+
+    assert.doesNotMatch(html, /post-footer/);
+  });
+
+  withFooterEnv(Buffer.from('  \n\t  ', 'utf8').toString('base64'), () => {
+    const html = convertMarkdownToHtml('# Hello');
+
+    assert.doesNotMatch(html, /post-footer/);
+  });
+
+  withFooterEnv('not valid base64', () => {
+    const html = convertMarkdownToHtml('# Hello');
+
+    assert.doesNotMatch(html, /post-footer/);
+  });
+});
+
+test('convertMarkdownToHtml injects configured footer html', () => {
+  const footerHtml = 'footer-e8c3a91f <a href="https://example.test/link-42">link-17b92</a>';
+  const encodedFooter = Buffer.from(`  ${footerHtml}  `, 'utf8').toString('base64');
+
+  withFooterEnv(encodedFooter, () => {
+    const html = convertMarkdownToHtml('# One\n\n## Two');
+    const articleEndIndex = html.indexOf('</article>');
+    const tocScriptIndex = html.indexOf(getEmbeddedAssetUrl('gfm_addon_js'));
+    const footerIndex = html.indexOf('<footer class="markdown-body post-footer">');
+
+    assert.notEqual(footerIndex, -1);
+    assert.ok(articleEndIndex < footerIndex);
+    assert.ok(tocScriptIndex < footerIndex);
+    assert.match(html, /<footer class="markdown-body post-footer">\nfooter-e8c3a91f <a href="https:\/\/example\.test\/link-42">link-17b92<\/a>\n<\/footer>/);
+    assert.match(html, /margin-top: auto;/);
+    assert.doesNotMatch(html, /#toc-layout-content > article\.markdown-body/);
+    assert.doesNotMatch(html, /post-footer a/);
+  });
 });

@@ -57,13 +57,14 @@ For details, see [API documentation](https://github.com/mirtlecn/post-go/blob/ma
 
 ### Vercel 
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/mirtlecn/post&project-name=post&repository-name=post&build-command=npm%20run%20build&env=LINKS_REDIS_URL,SECRET_KEY,ADMIN_KEY,BASE_DOMAIN,S3_ENDPOINT,S3_ACCESS_KEY_ID,S3_SECRET_ACCESS_KEY,S3_BUCKET_NAME,S3_REGION)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/mirtlecn/post&project-name=post&repository-name=post&build-command=npm%20run%20build&env=LINKS_REDIS_URL,SECRET_KEY,ADMIN_KEY,BASE_DOMAIN,FOOTER,S3_ENDPOINT,S3_ACCESS_KEY_ID,S3_SECRET_ACCESS_KEY,S3_BUCKET_NAME,S3_REGION)
 
 Required:
 - `LINKS_REDIS_URL` : 'redis://...' or 'rediss://...' URL for Redis connection
 - `SECRET_KEY` : API token
 - `ADMIN_KEY` : Password for admin GUI login
 - `BASE_DOMAIN` : Optional public domain for generated links, for example `www.example.com`
+- `FOOTER` : Optional base64-encoded HTML footer for rendered Markdown pages. Invalid base64 or blank decoded HTML is ignored.
 
 ### EdgeOne Pages
 
@@ -72,7 +73,7 @@ Config:
 - Build: `npm run build`
 - Output: `public`
 - Node: `24.5.0`
-- Env: `LINKS_REDIS_URL`, `SECRET_KEY`, `ADMIN_KEY`, `BASE_DOMAIN`
+- Env: `LINKS_REDIS_URL`, `SECRET_KEY`, `ADMIN_KEY`, `BASE_DOMAIN`, `FOOTER`
 - Upload: S3 vars, `MAX_FILE_SIZE_MB=5`
 
 Deploy:
