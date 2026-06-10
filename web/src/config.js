@@ -1,4 +1,4 @@
-export const PAGE_SIZE = 8;
+export const LIST_BATCH_SIZE = 10;
 export const COPY_FEEDBACK_MS = 2000;
 export const DELETE_CONFIRM_MS = 2000;
 export const API_ROOT = '/api/admin';

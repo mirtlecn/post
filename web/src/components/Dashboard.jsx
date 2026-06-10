@@ -13,7 +13,6 @@ import { ToastLayer } from './ToastLayer.jsx';
 export function Dashboard({ onLogout }) {
   const [items, setItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(true);
-  const [page, setPage] = useState(1);
   const [result, setResult] = useState(null);
   const [selectedTopicPath, setSelectedTopicPath] = useState('');
   const [composerType, setComposerType] = useState('none');
@@ -64,12 +63,10 @@ export function Dashboard({ onLogout }) {
 
   const created = useCallback(async (payload) => {
     setResult(payload);
-    setPage(1);
     await loadItems();
   }, [loadItems]);
 
   const refreshPage = useCallback(async () => {
-    setPage(1);
     await loadItems();
   }, [loadItems]);
 
@@ -97,7 +94,6 @@ export function Dashboard({ onLogout }) {
 
   const handleTopicChange = useCallback((nextTopicPath) => {
     setSelectedTopicPath(nextTopicPath);
-    setPage(1);
   }, []);
 
   return (
@@ -140,7 +136,7 @@ export function Dashboard({ onLogout }) {
           </div>
         </section>
       ) : (
-        filteredItems.length > 0 && <ListPanel items={filteredItems} onCopy={copy} onDelete={remove} page={page} setPage={setPage} />
+        filteredItems.length > 0 && <ListPanel items={filteredItems} onCopy={copy} onDelete={remove} />
       )}
       <ToastLayer onClose={clearToast} toast={toast} />
     </section>

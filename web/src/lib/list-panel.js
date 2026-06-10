@@ -1,4 +1,4 @@
-import { PAGE_SIZE } from '../config.js';
+import { LIST_BATCH_SIZE } from '../config.js';
 
 export function getItemTypeLabel(type) {
   switch (type) {
@@ -37,18 +37,17 @@ export function formatCreatedLabel(created) {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-export function paginateListItems(items, page) {
-  const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const safePage = Math.min(page, pages);
-  const rows = items.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE).map((item) => ({
+export function buildVisibleListItems(items, visibleCount = LIST_BATCH_SIZE) {
+  const safeVisibleCount = Math.max(0, Math.min(items.length, visibleCount));
+  const rows = items.slice(0, safeVisibleCount).map((item) => ({
     ...item,
     createdText: formatCreatedLabel(item.created),
     ttlText: formatTtlLabel(item.ttl),
   }));
 
   return {
-    pages,
+    hasMore: safeVisibleCount < items.length,
     rows,
-    safePage,
+    visibleCount: safeVisibleCount,
   };
 }

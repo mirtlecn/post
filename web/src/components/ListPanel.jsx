@@ -1,15 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import { COPY_FEEDBACK_MS, DELETE_CONFIRM_MS } from '../config.js';
-import { getItemTypeLabel, paginateListItems } from '../lib/list-panel.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { COPY_FEEDBACK_MS, DELETE_CONFIRM_MS, LIST_BATCH_SIZE } from '../config.js';
+import { buildVisibleListItems, getItemTypeLabel } from '../lib/list-panel.js';
 import { ListPanelRow } from './ListPanelRow.jsx';
 
-export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
+const LOAD_MORE_THRESHOLD_PX = 80;
+
+export function ListPanel({ items, onCopy, onDelete }) {
   const [confirmPath, setConfirmPath] = useState('');
   const [deletingPath, setDeletingPath] = useState('');
   const [copiedPath, setCopiedPath] = useState('');
   const [isMobile, setIsMobile] = useState(false);
-  const { pages, rows, safePage } = useMemo(() => paginateListItems(items, page), [items, page]);
+  const [visibleCount, setVisibleCount] = useState(LIST_BATCH_SIZE);
+  const listScrollRef = useRef(null);
+  const loadMoreRef = useRef(null);
+  const { hasMore, rows } = useMemo(() => buildVisibleListItems(items, visibleCount), [items, visibleCount]);
   const actionTooltip = isMobile ? 'left' : 'top';
+
+  const loadMoreItems = useCallback(() => {
+    setVisibleCount((currentCount) => Math.min(items.length, currentCount + LIST_BATCH_SIZE));
+  }, [items.length]);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 768px)');
@@ -28,6 +37,10 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
     if (deletingPath && !items.some((item) => item.path === deletingPath)) setDeletingPath('');
     if (copiedPath && !items.some((item) => item.path === copiedPath)) setCopiedPath('');
   }, [items, confirmPath, deletingPath, copiedPath]);
+
+  useEffect(() => {
+    setVisibleCount(LIST_BATCH_SIZE);
+  }, [items]);
 
   useEffect(() => {
     if (!copiedPath) return undefined;
@@ -81,6 +94,33 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
     if (ok) setCopiedPath(path);
   }
 
+  function handleListScroll(event) {
+    if (!hasMore) return;
+    const target = event.currentTarget;
+    const remainingScroll = target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (remainingScroll <= LOAD_MORE_THRESHOLD_PX) {
+      loadMoreItems();
+    }
+  }
+
+  useEffect(() => {
+    if (!hasMore) return undefined;
+    const root = listScrollRef.current;
+    const target = loadMoreRef.current;
+    if (!root || !target || typeof window.IntersectionObserver !== 'function') return undefined;
+
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMoreItems();
+        }
+      },
+      { root, rootMargin: `${LOAD_MORE_THRESHOLD_PX}px` },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loadMoreItems, rows.length]);
+
   const tableClassName = isMobile ? 'table table-zebra w-full' : 'table table-zebra table-fixed w-full';
   const pathColumnClassName = isMobile ? 'w-[10rem] max-w-[10rem]' : 'w-[18rem] max-w-[18rem]';
   const metaColumnClassName = isMobile ? 'w-[8.5rem] max-w-[8.5rem]' : 'w-[12rem] max-w-[12rem]';
@@ -90,7 +130,11 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
   return (
     <section className="panel-box">
       <div className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">Links</div>
-      <div className="list-scroll max-h-[30rem] overflow-auto rounded-[1.5rem] border border-base-300/70">
+      <div
+        className="list-scroll max-h-[30rem] overflow-auto rounded-[1.5rem] border border-base-300/70"
+        onScroll={handleListScroll}
+        ref={listScrollRef}
+      >
         <table className={tableClassName}>
           <thead>
             <tr>
@@ -123,19 +167,7 @@ export function ListPanel({ items, onCopy, onDelete, page, setPage }) {
             ))}
           </tbody>
         </table>
-      </div>
-      <div className="mt-5 flex justify-center gap-2">
-        <button className="btn btn-sm" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
-          {'<'}
-        </button>
-        {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-          <button key={n} className={`btn btn-sm ${n === safePage ? 'btn-active' : ''}`} onClick={() => setPage(n)}>
-            {n}
-          </button>
-        ))}
-        <button className="btn btn-sm" disabled={safePage >= pages} onClick={() => setPage(safePage + 1)}>
-          {'>'}
-        </button>
+        {hasMore && <div aria-hidden="true" className="h-2" ref={loadMoreRef} />}
       </div>
     </section>
   );
