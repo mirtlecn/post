@@ -335,8 +335,7 @@ if [ "$LAST_STATUS" != "501" ]; then
   expect_status 201
   request GET "$BASE_URL/$UPLOAD_TRUSTED_TXT_FILE_PATH"
   expect_status 200
-  expect_header_contains "^content-type: text/plain"
-  expect_header_not_contains "^content-type: text/plain; charset=utf-8"
+  expect_header_contains "^content-type: text/plain; charset=utf-8"
 
   request POST "$BASE_URL/create" "" \
     -H "Authorization: Bearer $SECRET_KEY" \

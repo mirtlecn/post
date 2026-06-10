@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import {
   detectContentTypeFromBuffer,
   detectContentTypeFromExtension,
+  ensureUtf8CharsetForTextContentType,
   GENERIC_CONTENT_TYPES,
   isTrustedClientContentType,
   resolveUploadedFileContentType,
@@ -35,8 +36,40 @@ test('detectContentTypeFromExtension resolves text types with utf-8 charset', ()
   assert.equal(detectContentTypeFromExtension('app.js'), 'text/javascript; charset=utf-8');
 });
 
-test('detectContentTypeFromExtension resolves svg without file sniffing', () => {
+test('detectContentTypeFromExtension resolves svg without charset', () => {
   assert.equal(detectContentTypeFromExtension('icon.svg'), 'image/svg+xml');
+});
+
+test('ensureUtf8CharsetForTextContentType adds utf-8 to known text content types', () => {
+  for (const contentType of [
+    'text/plain',
+    'application/json',
+    'application/javascript',
+    'application/ecmascript',
+    'application/x-javascript',
+    'application/xml',
+    'application/xhtml+xml',
+    'application/yaml',
+    'application/x-yaml',
+    'application/toml',
+    'application/x-sh',
+    'application/x-shellscript',
+  ]) {
+    assert.equal(
+      ensureUtf8CharsetForTextContentType(contentType),
+      `${contentType}; charset=utf-8`,
+    );
+  }
+});
+
+test('ensureUtf8CharsetForTextContentType preserves existing charset and binary types', () => {
+  assert.equal(
+    ensureUtf8CharsetForTextContentType('text/plain; charset=gbk'),
+    'text/plain; charset=gbk',
+  );
+  assert.equal(ensureUtf8CharsetForTextContentType('image/png'), 'image/png');
+  assert.equal(ensureUtf8CharsetForTextContentType('application/pdf'), 'application/pdf');
+  assert.equal(ensureUtf8CharsetForTextContentType('image/svg+xml'), 'image/svg+xml');
 });
 
 test('detectContentTypeFromBuffer detects binary signatures', () => {
@@ -57,13 +90,18 @@ test('detectContentTypeFromBuffer detects binary signatures', () => {
   );
 });
 
-test('resolveUploadedFileContentType keeps explicit trusted client type unchanged', async () => {
+test('resolveUploadedFileContentType adds utf-8 to trusted text client types', async () => {
   const result = await resolveUploadedFileContentType({
     clientContentType: 'text/plain',
     originalFilename: 'note.txt',
   });
+  const shellResult = await resolveUploadedFileContentType({
+    clientContentType: 'application/x-sh',
+    originalFilename: 'script.sh',
+  });
 
-  assert.equal(result, 'text/plain');
+  assert.equal(result, 'text/plain; charset=utf-8');
+  assert.equal(shellResult, 'application/x-sh; charset=utf-8');
 });
 
 test('resolveUploadedFileContentType rewrites generic client type using extension mapping', async () => {

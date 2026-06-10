@@ -19,6 +19,52 @@ function createTopicRedis() {
   };
 }
 
+async function withConfiguredS3(callback) {
+  const previousEnvironment = {
+    endpoint: process.env.S3_ENDPOINT,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    bucket: process.env.S3_BUCKET_NAME,
+  };
+  process.env.S3_ENDPOINT = 'http://s3.local';
+  process.env.S3_ACCESS_KEY_ID = 'test-key';
+  process.env.S3_SECRET_ACCESS_KEY = 'test-secret';
+  process.env.S3_BUCKET_NAME = 'test-bucket';
+  try {
+    return await callback();
+  } finally {
+    restoreEnvironmentValue('S3_ENDPOINT', previousEnvironment.endpoint);
+    restoreEnvironmentValue('S3_ACCESS_KEY_ID', previousEnvironment.accessKeyId);
+    restoreEnvironmentValue('S3_SECRET_ACCESS_KEY', previousEnvironment.secretAccessKey);
+    restoreEnvironmentValue('S3_BUCKET_NAME', previousEnvironment.bucket);
+  }
+}
+
+function restoreEnvironmentValue(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
+}
+
+function createCachedFileRedis({ path, body, contentType, contentLength }) {
+  return {
+    async mGet(keys) {
+      const values = {
+        [`cache:file:${path}`]: Buffer.from(body).toString('base64'),
+        [`cache:filemeta:${path}`]: JSON.stringify({
+          contentType,
+          contentLength,
+          encoding: 'base64',
+        }),
+      };
+      return keys.map((key) => values[key] ?? null);
+    },
+  };
+}
+
 test('respondByType omits body for head text responses', async () => {
   const response = createMockResponse();
 
@@ -176,30 +222,13 @@ test('respondByType returns 500 when dynamic rendering fails', async () => {
 
 test('respondByType omits body for head cached file responses', async () => {
   const response = createMockResponse();
-  const previousEnvironment = {
-    endpoint: process.env.S3_ENDPOINT,
-    accessKeyId: process.env.S3_ACCESS_KEY_ID,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-    bucket: process.env.S3_BUCKET_NAME,
-  };
-  process.env.S3_ENDPOINT = 'http://s3.local';
-  process.env.S3_ACCESS_KEY_ID = 'test-key';
-  process.env.S3_SECRET_ACCESS_KEY = 'test-secret';
-  process.env.S3_BUCKET_NAME = 'test-bucket';
-  try {
-    const redis = {
-      async mGet(keys) {
-        const values = {
-          'cache:file:docs/file.bin': Buffer.from('cached').toString('base64'),
-          'cache:filemeta:docs/file.bin': JSON.stringify({
-            contentType: 'application/octet-stream',
-            contentLength: 6,
-            encoding: 'base64',
-          }),
-        };
-        return keys.map((key) => values[key] ?? null);
-      },
-    };
+  await withConfiguredS3(async () => {
+    const redis = createCachedFileRedis({
+      path: 'docs/file.bin',
+      body: 'cached',
+      contentType: 'application/octet-stream',
+      contentLength: 6,
+    });
 
     await respondByType(createMockRequest({ method: 'HEAD' }), response, {
       type: 'file',
@@ -212,10 +241,53 @@ test('respondByType omits body for head cached file responses', async () => {
     assert.equal(response.body, '');
     assert.equal(response.getHeader('content-type'), 'application/octet-stream');
     assert.equal(response.getHeader('content-length'), 6);
-  } finally {
-    process.env.S3_ENDPOINT = previousEnvironment.endpoint;
-    process.env.S3_ACCESS_KEY_ID = previousEnvironment.accessKeyId;
-    process.env.S3_SECRET_ACCESS_KEY = previousEnvironment.secretAccessKey;
-    process.env.S3_BUCKET_NAME = previousEnvironment.bucket;
-  }
+  });
+});
+
+test('respondByType adds utf-8 charset for head cached text file responses', async () => {
+  const response = createMockResponse();
+  await withConfiguredS3(async () => {
+    const redis = createCachedFileRedis({
+      path: 'scripts/deploy.sh',
+      body: 'echo deploy\n',
+      contentType: 'application/x-sh',
+      contentLength: 12,
+    });
+
+    await respondByType(createMockRequest({ method: 'HEAD' }), response, {
+      type: 'file',
+      content: 'object-key',
+      path: 'scripts/deploy.sh',
+      redis,
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body, '');
+    assert.equal(response.getHeader('content-type'), 'application/x-sh; charset=utf-8');
+    assert.equal(response.getHeader('content-length'), 12);
+  });
+});
+
+test('respondByType adds utf-8 charset for get cached text file responses', async () => {
+  const response = createMockResponse();
+  await withConfiguredS3(async () => {
+    const redis = createCachedFileRedis({
+      path: 'scripts/deploy.sh',
+      body: 'echo deploy\n',
+      contentType: 'application/x-sh',
+      contentLength: 12,
+    });
+
+    await respondByType(createMockRequest({ method: 'GET' }), response, {
+      type: 'file',
+      content: 'object-key',
+      path: 'scripts/deploy.sh',
+      redis,
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.getHeader('content-type'), 'application/x-sh; charset=utf-8');
+    assert.equal(response.getHeader('content-length'), 12);
+    assert.equal(response.body.toString('utf8'), 'echo deploy\n');
+  });
 });
