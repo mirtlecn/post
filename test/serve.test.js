@@ -49,6 +49,16 @@ function restoreEnvironmentValue(name, value) {
   process.env[name] = value;
 }
 
+async function withFooterEnv(footerHtml, callback) {
+  const previousFooter = process.env.FOOTER;
+  process.env.FOOTER = Buffer.from(footerHtml, 'utf8').toString('base64');
+  try {
+    return await callback();
+  } finally {
+    restoreEnvironmentValue('FOOTER', previousFooter);
+  }
+}
+
 function createCachedFileRedis({ path, body, contentType, contentLength }) {
   return {
     async mGet(keys) {
@@ -176,10 +186,12 @@ test('respondByType omits body for head qrcode responses using rendered text len
 
 test('respondByType omits body for head topic responses', async () => {
   const response = createMockResponse();
+  const topicMarkdown = '<div style="font-size: 1.3em; font-weight: bold">Topic</div>\n\n<span style="color: #666;">Home</span>';
 
   await respondByType(createMockRequest({ method: 'HEAD' }), response, {
     type: 'topic',
-    content: '<article>Topic</article>',
+    content: topicMarkdown,
+    title: 'Topic',
     path: 'topic',
     redis: null,
   });
@@ -192,18 +204,55 @@ test('respondByType omits body for head topic responses', async () => {
 
 test('respondByType serves topic responses with 10 minute cache headers', async () => {
   const response = createMockResponse();
+  const topicMarkdown = [
+    '<div style="font-size: 1.3em; font-weight: bold">Topic</div>',
+    '\n\n',
+    '<span style="color: #666;">Home</span>',
+    '\n\n\n\n\n\n',
+    '- [Entry](</topic/entry>) · 2026-06-11',
+  ].join('\n');
 
   await respondByType(createMockRequest({ method: 'GET' }), response, {
     type: 'topic',
-    content: '<article>Topic</article>',
+    content: topicMarkdown,
+    title: 'Topic',
     path: 'topic',
     redis: null,
   });
 
   assert.equal(response.statusCode, 200);
-  assert.equal(response.body, '<article>Topic</article>');
+  assert.match(response.body, /<title>Topic<\/title>/);
+  assert.match(response.body, /<div style="font-size: 1.3em; font-weight: bold">Topic<\/div>/);
+  assert.match(response.body, /<span style="color: #666;">Home<\/span>/);
+  assert.match(response.body, /href="\/topic\/entry"/);
   assert.equal(response.getHeader('cache-control'), 'public, max-age=600, s-maxage=600');
   assert.equal(response.getHeader('content-type'), 'text/html; charset=utf-8');
+});
+
+test('resolvePublicRender adds footer while rendering topic markdown', async () => {
+  const topicMarkdown = [
+    '<div style="font-size: 1.3em; font-weight: bold">Topic</div>',
+    '\n\n',
+    '<span style="color: #666;">Home</span>',
+    '\n\n\n\n\n\n',
+    '- [Entry](</topic/entry>) · 2026-06-11',
+  ].join('\n');
+
+  await withFooterEnv('footer-819be7', async () => {
+    const renderResult = await resolvePublicRender({
+      type: 'topic',
+      content: topicMarkdown,
+      title: 'Topic',
+      path: 'topic',
+      redis: null,
+    });
+
+    assert.equal(renderResult.responseKind, 'html');
+    assert.match(renderResult.renderedContent, /<title>Topic<\/title>/);
+    assert.match(renderResult.renderedContent, /href="\/topic\/entry"/);
+    assert.match(renderResult.renderedContent, /<footer class="markdown-body post-footer">\nfooter-819be7\n<\/footer>/);
+    assert.doesNotMatch(topicMarkdown, /footer-819be7/);
+  });
 });
 
 test('respondByType returns 500 when dynamic rendering fails', async () => {

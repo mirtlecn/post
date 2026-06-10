@@ -9,6 +9,7 @@ BASE_URL="${BASE_URL:-}"
 MODE="${MODE:-api-smoke}"
 SECRET_KEY="${SECRET_KEY:-demo}"
 REDIS_DB="${REDIS_DB:-10}"
+SMOKE_FOOTER_TEXT="${SMOKE_FOOTER_TEXT:-}"
 
 require_base_url
 init_http_test
@@ -526,6 +527,12 @@ TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$STORAGE_TOPIC_PATH")"
 TOPIC_REDIS_TYPE="$(redis-cli -n "$REDIS_DB" TYPE "$STORAGE_TOPIC_ITEMS_KEY")"
 TOPIC_REDIS_ZRANGE="$(redis-cli -n "$REDIS_DB" ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1 WITHSCORES)"
 expect_redis_contains "$TOPIC_REDIS_VALUE" '"type":"topic"'
+expect_redis_contains "$TOPIC_REDIS_VALUE" '<span style=\"color: #666;\">Home</span>'
+expect_redis_not_contains "$TOPIC_REDIS_VALUE" '<!doctype html'
+expect_redis_not_contains "$TOPIC_REDIS_VALUE" '<article'
+if [ -n "$SMOKE_FOOTER_TEXT" ]; then
+  expect_redis_not_contains "$TOPIC_REDIS_VALUE" "$SMOKE_FOOTER_TEXT"
+fi
 if printf '%s' "$TOPIC_REDIS_VALUE" | /usr/bin/grep -Fq '"title":'; then
   fail "默认 topic Redis 值不应持久化 title 字段"
 fi
@@ -555,6 +562,13 @@ expect_redis_contains "$ORPHAN_REDIS_VALUE" '"type":"text"'
 expect_redis_contains "$ORPHAN_REDIS_VALUE" '"title":"Orphan Title"'
 expect_redis_contains "$TOPIC_REDIS_VALUE" "$STORAGE_ENTRY_PATH"
 expect_redis_contains "$TOPIC_REDIS_VALUE" "$STORAGE_ORPHAN_PATH"
+expect_redis_contains "$TOPIC_REDIS_VALUE" "[Entry Title](</$STORAGE_ENTRY_PATH>)"
+expect_redis_not_contains "$TOPIC_REDIS_VALUE" '<!doctype html'
+expect_redis_not_contains "$TOPIC_REDIS_VALUE" '<article'
+expect_redis_not_contains "$TOPIC_REDIS_VALUE" "href=\\\"/$STORAGE_ENTRY_PATH\\\""
+if [ -n "$SMOKE_FOOTER_TEXT" ]; then
+  expect_redis_not_contains "$TOPIC_REDIS_VALUE" "$SMOKE_FOOTER_TEXT"
+fi
 expect_equals "$TOPIC_REDIS_MEMBERS" $'__topic_placeholder__\nentry\norphan'
 log "storage topic Redis 同步通过"
 
@@ -615,6 +629,9 @@ request GET "$BASE_URL/$RENDER_TOPIC_PATH"
 expect_status 200
 expect_body_contains "<title>$RENDER_TOPIC_TITLE</title>"
 expect_body_contains "<div style=\"font-size: 1.3em; font-weight: bold\">$RENDER_TOPIC_TITLE</div>"
+if [ -n "$SMOKE_FOOTER_TEXT" ]; then
+  expect_body_contains "$SMOKE_FOOTER_TEXT"
+fi
 log "空 render topic 公开页渲染通过"
 
 CURRENT_STEP="创建 render topic 条目"
@@ -709,6 +726,15 @@ expect_body_contains "href=\"/$RENDER_TOPIC_PATH/notes/reference-link\""
 expect_body_contains "↗ · $CURRENT_DATE"
 expect_body_contains " · $CURRENT_DATE"
 expect_body_not_contains "  · "
+RENDER_TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$RENDER_TOPIC_PATH")"
+expect_redis_contains "$RENDER_TOPIC_REDIS_VALUE" "[Howl Visual Draft](</$RENDER_HTML_ITEM_PATH>)"
+expect_redis_contains "$RENDER_TOPIC_REDIS_VALUE" "[Castle Notes](</$RENDER_TEXT_ITEM_PATH>) ☰"
+expect_redis_not_contains "$RENDER_TOPIC_REDIS_VALUE" '<!doctype html'
+expect_redis_not_contains "$RENDER_TOPIC_REDIS_VALUE" '<article'
+if [ -n "$SMOKE_FOOTER_TEXT" ]; then
+  expect_body_contains "$SMOKE_FOOTER_TEXT"
+  expect_redis_not_contains "$RENDER_TOPIC_REDIS_VALUE" "$SMOKE_FOOTER_TEXT"
+fi
 log "render topic 首页渲染通过"
 
 CURRENT_STEP="跨年长 topic 首页按年份分组"
@@ -769,6 +795,13 @@ expect_body_contains "Grouped Text</a> ☰ · 05-23"
 expect_body_contains "Grouped Markdown</a> · 05-22"
 expect_body_contains "Old 1</a> · 12-31"
 expect_body_not_contains "Grouped Text</a> ☰ · 2026-05-23"
+GROUPED_TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$GROUPED_TOPIC_PATH")"
+expect_redis_contains "$GROUPED_TOPIC_REDIS_VALUE" '## 2026'
+expect_redis_contains "$GROUPED_TOPIC_REDIS_VALUE" '## 2025'
+expect_redis_contains "$GROUPED_TOPIC_REDIS_VALUE" "[Grouped Text](</$GROUPED_TOPIC_PATH/new-text>) ☰ · 05-23"
+expect_redis_not_contains "$GROUPED_TOPIC_REDIS_VALUE" '<h2 id=\"2026\">2026</h2>'
+expect_redis_not_contains "$GROUPED_TOPIC_REDIS_VALUE" '<!doctype html'
+expect_redis_not_contains "$GROUPED_TOPIC_REDIS_VALUE" '<article'
 log "跨年长 topic 首页按年份分组通过"
 
 CURRENT_STEP="topic 首页按 created 排序并在非法值时回退 score"

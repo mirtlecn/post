@@ -45,7 +45,7 @@ curl -H "Authorization: Bearer $POST_TOKEN" \
 
 `GET /query`, `GET /create`, `GET /update`, and `GET /delete` remain normal public content paths.
 
-Topic pages keep a flat list by default. When a topic has more than 10 entries across multiple Asia/Shanghai display years, entries are grouped by year.
+Topic pages keep a flat list by default. When a topic has more than 10 entries across multiple Asia/Shanghai display years, entries are grouped by year. Topic index snapshots are stored as Markdown and rendered to HTML at request time, so deployment-local Markdown footer configuration is not persisted in Redis.
 
 For details, see [API documentation](https://github.com/mirtlecn/post-go/blob/master/API.md)
 

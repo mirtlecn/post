@@ -170,6 +170,14 @@ function expect_redis_contains() {
   fi
 }
 
+function expect_redis_not_contains() {
+  local value="$1"
+  local needle="$2"
+  if printf '%s' "$value" | /usr/bin/grep -Fq "$needle"; then
+    fail "Redis 值不应包含: $needle"
+  fi
+}
+
 function uniq_path() {
   echo "smoke-$1-$(date +%s)-$RANDOM"
 }
@@ -202,6 +210,7 @@ function start_local_server() {
   echo "[$MODE] 启动 npm start"
   LINKS_REDIS_URL="redis://localhost:6379/$REDIS_DB" \
   SECRET_KEY="$SECRET_KEY" \
+  FOOTER="${FOOTER:-}" \
   PORT="$PORT" \
   npm start >"$LOG_FILE" 2>&1 &
   SERVER_PID=$!
