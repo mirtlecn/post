@@ -68,6 +68,18 @@ export function CreatePanel(props) {
   }, [ttlDisabled]);
 
   useEffect(() => {
+    if (!props.resetRequestId) return;
+
+    composer.reset();
+    setMetaOpen(false);
+    setTtlFocused(false);
+    setTopicOpen(false);
+    menu.setMenuOpen(false);
+    topicMode.clearTopicModeSnapshot();
+    dragAndPaste.clearSelectedFile();
+  }, [props.resetRequestId]);
+
+  useEffect(() => {
     if (!props.editRequest) return;
 
     const { snapshot } = props.editRequest;

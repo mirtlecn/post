@@ -18,6 +18,8 @@ export function Dashboard({ onLogout }) {
   const [selectedTopicPath, setSelectedTopicPath] = useState('');
   const [composerFilters, setComposerFilters] = useState({ path: '', ttl: '', type: 'none' });
   const [editRequest, setEditRequest] = useState(null);
+  const [resetRequestId, setResetRequestId] = useState(0);
+  const [listResetKey, setListResetKey] = useState(0);
   const { toast, showToast, clearToast } = useToast();
 
   const loadItems = useCallback(async () => {
@@ -90,6 +92,17 @@ export function Dashboard({ onLogout }) {
     await loadItems();
   }, [loadItems]);
 
+  const resetDashboard = useCallback(() => {
+    setResult(null);
+    setSelectedTopicPath('');
+    setComposerFilters({ path: '', ttl: '', type: 'none' });
+    setEditRequest(null);
+    setResetRequestId((currentId) => currentId + 1);
+    setListResetKey((currentKey) => currentKey + 1);
+    clearToast();
+    window.localStorage.removeItem(TOPIC_STORAGE_KEY);
+  }, [clearToast]);
+
   const filteredItems = useMemo(
     () => filterDashboardItems(items, {
       selectedTopicPath,
@@ -131,7 +144,8 @@ export function Dashboard({ onLogout }) {
           Post
         </button>
         <div className="flex gap-2">
-          <IconButton icon={icons.logout} onClick={onLogout} title="Logout" />
+          <IconButton icon={icons.close} onClick={resetDashboard} title="Clear" />
+          <IconButton className="text-error hover:bg-error/10" icon={icons.logout} onClick={onLogout} title="Logout" />
         </div>
       </header>
       {result ? (
@@ -145,6 +159,7 @@ export function Dashboard({ onLogout }) {
           editRequest={editRequest}
           onCreated={created}
           onFilterChange={handleComposerFilterChange}
+          resetRequestId={resetRequestId}
           selectedTopicPath={selectedTopicPath}
           onTopicChange={handleTopicChange}
           topics={topics}
@@ -168,7 +183,7 @@ export function Dashboard({ onLogout }) {
             </div>
           </section>
         ) : (
-          filteredItems.length > 0 && <ListPanel items={filteredItems} onCopy={copy} onDelete={remove} onEdit={edit} />
+          filteredItems.length > 0 && <ListPanel items={filteredItems} key={listResetKey} onCopy={copy} onDelete={remove} onEdit={edit} />
         )}
       </section>
       <ToastLayer onClose={clearToast} toast={toast} />

@@ -54,6 +54,7 @@ export function useTopicModeRestore({ composer, metaOpen, setMetaOpen, clearNati
   }
 
   return {
+    clearTopicModeSnapshot: () => setTopicModeSnapshot(null),
     onConvertSelect,
     submit,
     topicModeSnapshot,
