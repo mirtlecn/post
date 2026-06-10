@@ -16,7 +16,7 @@ export function Dashboard({ onLogout }) {
   const [itemsLoading, setItemsLoading] = useState(true);
   const [result, setResult] = useState(null);
   const [selectedTopicPath, setSelectedTopicPath] = useState('');
-  const [composerType, setComposerType] = useState('none');
+  const [composerFilters, setComposerFilters] = useState({ path: '', ttl: '', type: 'none' });
   const [editRequest, setEditRequest] = useState(null);
   const { toast, showToast, clearToast } = useToast();
 
@@ -69,6 +69,9 @@ export function Dashboard({ onLogout }) {
     try {
       const fullItem = await lookupItem(item.path, item.type === 'topic' ? 'topic' : '');
       const snapshot = buildEditComposerSnapshot(fullItem, topics);
+      setItems((currentItems) => sortItems(currentItems.map((entry) => (
+        entry.path === fullItem.path ? { ...entry, ...fullItem } : entry
+      ))));
       setSelectedTopicPath(snapshot.topic);
       setEditRequest({ id: `${fullItem.path}:${Date.now()}`, snapshot });
       showToast('success', fullItem.type === 'file' ? 'Select a file to overwrite this file entry' : 'Loaded');
@@ -79,6 +82,7 @@ export function Dashboard({ onLogout }) {
 
   const created = useCallback(async (payload) => {
     setResult(payload);
+    setComposerFilters({ path: '', ttl: '', type: 'none' });
     await loadItems();
   }, [loadItems]);
 
@@ -87,8 +91,13 @@ export function Dashboard({ onLogout }) {
   }, [loadItems]);
 
   const filteredItems = useMemo(
-    () => filterDashboardItems(items, { selectedTopicPath, createType: composerType }),
-    [items, selectedTopicPath, composerType],
+    () => filterDashboardItems(items, {
+      selectedTopicPath,
+      createType: composerFilters.type,
+      pathFilter: composerFilters.path,
+      ttlFilter: composerFilters.ttl,
+    }),
+    [items, selectedTopicPath, composerFilters],
   );
 
   useEffect(() => {
@@ -111,6 +120,10 @@ export function Dashboard({ onLogout }) {
     setSelectedTopicPath(nextTopicPath);
   }, []);
 
+  const handleComposerFilterChange = useCallback((nextFilters) => {
+    setComposerFilters((currentFilters) => ({ ...currentFilters, ...nextFilters }));
+  }, []);
+
   return (
     <section className="mx-auto max-w-6xl px-5 py-6">
       <header className="panel-box mb-6 flex items-center justify-between">
@@ -121,39 +134,43 @@ export function Dashboard({ onLogout }) {
           <IconButton icon={icons.logout} onClick={onLogout} title="Logout" />
         </div>
       </header>
-      <CreatePanel
-        notify={showToast}
-        editRequest={editRequest}
-        onCreated={created}
-        onModeChange={setComposerType}
-        selectedTopicPath={selectedTopicPath}
-        onTopicChange={handleTopicChange}
-        topics={topics}
-      />
-      <div className="my-6">
-        <ResultPanel onCopy={copy} result={result} />
-      </div>
-      {itemsLoading ? (
-        <section className="panel-box">
-          <div className="mb-4 h-5 w-24 skeleton" />
-          <div className="rounded-[1.5rem] border border-base-300/70 p-4">
-            <div className="mb-4 grid grid-cols-5 gap-4">
-              <div className="h-5 skeleton" />
-              <div className="h-5 skeleton" />
-              <div className="h-5 skeleton" />
-              <div className="h-5 skeleton" />
-              <div className="h-5 skeleton" />
+      {result ? (
+        <div className="mb-6">
+          <ResultPanel onCopy={copy} result={result} />
+        </div>
+      ) : null}
+      <section className="panel-box dashboard-main-card grid gap-6">
+        <CreatePanel
+          notify={showToast}
+          editRequest={editRequest}
+          onCreated={created}
+          onFilterChange={handleComposerFilterChange}
+          selectedTopicPath={selectedTopicPath}
+          onTopicChange={handleTopicChange}
+          topics={topics}
+        />
+        {itemsLoading ? (
+          <section className="pt-2">
+            <div className="mb-4 h-5 w-24 skeleton" />
+            <div className="rounded-[1.5rem] border border-base-300/70 p-4">
+              <div className="mb-4 grid grid-cols-5 gap-4">
+                <div className="h-5 skeleton" />
+                <div className="h-5 skeleton" />
+                <div className="h-5 skeleton" />
+                <div className="h-5 skeleton" />
+                <div className="h-5 skeleton" />
+              </div>
+              <div className="space-y-3">
+                <div className="h-14 skeleton" />
+                <div className="h-14 skeleton" />
+                <div className="h-14 skeleton" />
+              </div>
             </div>
-            <div className="space-y-3">
-              <div className="h-14 skeleton" />
-              <div className="h-14 skeleton" />
-              <div className="h-14 skeleton" />
-            </div>
-          </div>
-        </section>
-      ) : (
-        filteredItems.length > 0 && <ListPanel items={filteredItems} onCopy={copy} onDelete={remove} onEdit={edit} />
-      )}
+          </section>
+        ) : (
+          filteredItems.length > 0 && <ListPanel items={filteredItems} onCopy={copy} onDelete={remove} onEdit={edit} />
+        )}
+      </section>
       <ToastLayer onClose={clearToast} toast={toast} />
     </section>
   );

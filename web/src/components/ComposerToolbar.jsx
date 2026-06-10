@@ -32,6 +32,7 @@ export function ComposerToolbar({
   menuRef,
   onConvertSelect,
   onPathChange,
+  onPathBlur,
   onTopicBlur,
   onTopicChange,
   onTopicFocus,
@@ -92,6 +93,7 @@ export function ComposerToolbar({
           <input
             className="grow path-input"
             maxLength={99}
+            onBlur={onPathBlur}
             onChange={(event) => onPathChange(event.target.value)}
             pattern={PATH_PATTERN}
             placeholder={pathPlaceholder}

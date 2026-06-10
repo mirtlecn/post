@@ -54,6 +54,7 @@ export function CreatePanel(props) {
 
   useEffect(() => {
     props.onModeChange?.(composer.form.convert);
+    props.onFilterChange?.({ type: composer.form.convert });
   }, [composer.form.convert, props.onModeChange]);
 
   useEffect(() => {
@@ -73,6 +74,11 @@ export function CreatePanel(props) {
     composer.restoreForm(snapshot);
     setMetaOpen(Boolean(snapshot.metaOpen));
     setTtlFocused(false);
+    props.onFilterChange?.({
+      path: snapshot.path,
+      ttl: snapshot.ttl,
+      type: snapshot.convert,
+    });
     if (snapshot.topic !== props.selectedTopicPath) {
       props.onTopicChange?.(snapshot.topic);
     }
@@ -109,6 +115,7 @@ export function CreatePanel(props) {
 
   function clearSelectedFile() {
     composer.reset();
+    props.onFilterChange?.({ path: '', ttl: '', type: 'none' });
     dragAndPaste.clearSelectedFile();
   }
 
@@ -118,6 +125,7 @@ export function CreatePanel(props) {
     const nextTopicPath = event.target.value;
     if (nextTopicPath) setMetaOpen(true);
     composer.updateTopic(nextTopicPath);
+    props.onFilterChange?.({ path: '' });
     props.onTopicChange?.(nextTopicPath);
     requestAnimationFrame(() => {
       setTopicOpen(false);
@@ -130,8 +138,29 @@ export function CreatePanel(props) {
     await topicMode.submit(event);
   }
 
+  function onConvertSelect(nextConvert) {
+    const restoredSnapshot = composer.isTopicMode ? topicMode.topicModeSnapshot : null;
+    topicMode.onConvertSelect(nextConvert, () => menu.setMenuOpen(false));
+
+    if (nextConvert === 'topic') {
+      props.onFilterChange?.({ path: '', ttl: '', type: nextConvert });
+      return;
+    }
+
+    if (restoredSnapshot) {
+      props.onFilterChange?.({
+        path: restoredSnapshot.path || '',
+        ttl: restoredSnapshot.ttl || '',
+        type: nextConvert,
+      });
+      return;
+    }
+
+    props.onFilterChange?.({ type: nextConvert });
+  }
+
   return (
-    <section className="panel-box composer-panel" ref={panelRef}>
+    <section className="composer-panel" ref={panelRef}>
       <div className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">New</div>
       <form className="grid gap-3 animate-fade-up" onSubmit={onSubmit}>
         <ComposerEditor
@@ -184,13 +213,17 @@ export function CreatePanel(props) {
           menuPanelRef={menu.menuPanelRef}
           menuPosition={menu.menuPosition}
           menuRef={menu.menuRef}
-          onConvertSelect={(nextConvert) => topicMode.onConvertSelect(nextConvert, () => menu.setMenuOpen(false))}
+          onConvertSelect={onConvertSelect}
+          onPathBlur={() => props.onFilterChange?.({ path: composer.form.path })}
           onPathChange={composer.updatePath}
           onTopicBlur={() => setTopicOpen(false)}
           onTopicChange={onTopicChange}
           onTopicFocus={() => setTopicOpen(true)}
           onTopicPointerDown={() => setTopicOpen(true)}
-          onTtlBlur={() => setTtlFocused(false)}
+          onTtlBlur={() => {
+            setTtlFocused(false);
+            props.onFilterChange?.({ ttl: composer.form.ttl });
+          }}
           onTtlChange={composer.updateTtl}
           onTtlFocus={() => setTtlFocused(true)}
           pathInputVisible={pathInputVisible}

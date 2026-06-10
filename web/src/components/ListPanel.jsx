@@ -128,7 +128,7 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
   const previewColumnClassName = isMobile ? 'min-w-[8rem] max-w-[10rem] truncate text-base-content/62' : 'max-w-md truncate text-base-content/62';
 
   return (
-    <section className="panel-box">
+    <section className="pt-2">
       <div className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">Links</div>
       <div
         className="list-scroll max-h-[30rem] overflow-auto rounded-[1.5rem] border border-base-300/70"

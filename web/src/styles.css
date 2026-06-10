@@ -19,7 +19,8 @@ body, #root { margin: 0; min-height: 100vh; }
 .app-shell { min-height: 100vh; background: radial-gradient(circle at top left, color-mix(in oklab, var(--color-info) 20%, transparent), transparent 28%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-warning) 18%, transparent), transparent 22%), linear-gradient(180deg, color-mix(in oklab, var(--color-base-100) 96%, var(--color-base-200) 4%) 0%, var(--color-base-200) 100%); color: var(--color-base-content); }
 .app-footer-sep { opacity: .6; }
 .panel-box { border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent); border-radius: 2rem; background: color-mix(in oklab, var(--color-base-100) 82%, transparent); padding: 1.25rem; box-shadow: 0 25px 60px color-mix(in oklab, var(--color-base-content) 10%, transparent); backdrop-filter: blur(10px); }
-.composer-panel { position: relative; z-index: 10; border-color: color-mix(in oklab, var(--color-base-content) 14%, transparent); box-shadow: 0 24px 56px color-mix(in oklab, var(--color-base-content) 14%, transparent), 0 10px 24px color-mix(in oklab, var(--color-base-content) 9%, transparent); }
+.dashboard-main-card { box-shadow: 0 34px 90px color-mix(in oklab, var(--color-base-content) 16%, transparent), 0 12px 32px color-mix(in oklab, var(--color-base-content) 8%, transparent); }
+.composer-panel { position: relative; z-index: 10; }
 .icon-button { border-width: 1.5px; }
 .toolbar-grid { display: grid; gap: .85rem; align-items: stretch; }
 .field-shell { display: flex; align-items: center; gap: .5rem; height: 3.3rem; border-radius: 1.2rem; background: color-mix(in oklab, var(--color-base-100) 74%, transparent); padding: 0 .95rem; }
