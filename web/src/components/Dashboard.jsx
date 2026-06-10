@@ -18,6 +18,7 @@ export function Dashboard({ onLogout }) {
   const [selectedTopicPath, setSelectedTopicPath] = useState('');
   const [composerFilters, setComposerFilters] = useState({ path: '', ttl: '', type: 'none' });
   const [editRequest, setEditRequest] = useState(null);
+  const [editLoadingPath, setEditLoadingPath] = useState('');
   const [resetRequestId, setResetRequestId] = useState(0);
   const [listResetKey, setListResetKey] = useState(0);
   const { toast, showToast, clearToast } = useToast();
@@ -68,6 +69,7 @@ export function Dashboard({ onLogout }) {
   const topics = useMemo(() => items.filter((item) => item.type === 'topic'), [items]);
 
   const edit = useCallback(async (item) => {
+    setEditLoadingPath(item.path);
     try {
       const fullItem = await lookupItem(item.path, item.type === 'topic' ? 'topic' : '');
       const snapshot = buildEditComposerSnapshot(fullItem, topics);
@@ -76,9 +78,10 @@ export function Dashboard({ onLogout }) {
       ))));
       setSelectedTopicPath(snapshot.topic);
       setEditRequest({ id: `${fullItem.path}:${Date.now()}`, snapshot });
-      showToast('success', fullItem.type === 'file' ? 'Select a file to overwrite this file entry' : 'Loaded');
     } catch (error) {
       showToast('error', error.message);
+    } finally {
+      setEditLoadingPath('');
     }
   }, [showToast, topics]);
 
@@ -97,6 +100,7 @@ export function Dashboard({ onLogout }) {
     setSelectedTopicPath('');
     setComposerFilters({ path: '', ttl: '', type: 'none' });
     setEditRequest(null);
+    setEditLoadingPath('');
     setResetRequestId((currentId) => currentId + 1);
     setListResetKey((currentKey) => currentKey + 1);
     clearToast();
@@ -138,7 +142,7 @@ export function Dashboard({ onLogout }) {
   }, []);
 
   return (
-    <section className="mx-auto max-w-6xl px-5 py-6">
+    <section className="dashboard-shell mx-auto max-w-6xl px-5 py-6">
       <header className="panel-box mb-6 flex items-center justify-between">
         <button className="dashboard-title text-5xl font-black" onClick={refreshPage} type="button">
           Post
@@ -157,6 +161,7 @@ export function Dashboard({ onLogout }) {
         <CreatePanel
           notify={showToast}
           editRequest={editRequest}
+          editLoading={Boolean(editLoadingPath)}
           onCreated={created}
           onFilterChange={handleComposerFilterChange}
           resetRequestId={resetRequestId}

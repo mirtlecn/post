@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { handleCreate, validateInputType, normalizeWriteType } from '../lib/handlers/create.js';
+import { buildFileMetadataUpdate, handleCreate, validateInputType, normalizeWriteType } from '../lib/handlers/create.js';
+import { buildStoredValue } from '../lib/utils/storage.js';
 
 function createJsonRequest(body) {
   const request = new EventEmitter();
@@ -91,4 +92,43 @@ test('normalizeWriteType converts md2html requests into md', () => {
   assert.equal(normalizeWriteType('md2html', undefined), 'md');
   assert.equal(normalizeWriteType('md', 'md2html'), 'md');
   assert.equal(normalizeWriteType(undefined, 'qrcode'), 'qrcode');
+});
+
+test('buildFileMetadataUpdate keeps the existing file object key and applies title changes', () => {
+  const update = buildFileMetadataUpdate({
+    input: {
+      path: 'post/bo-ke',
+      title: '',
+      titleProvided: true,
+    },
+    existingStoredValue: buildStoredValue({
+      type: 'file',
+      content: 'post/default/object-key.png',
+      title: 'Old title',
+      created: '2026-03-20T00:00:00Z',
+    }),
+  });
+
+  assert.deepEqual(update, {
+    content: 'post/default/object-key.png',
+    title: '',
+  });
+});
+
+test('buildFileMetadataUpdate rejects missing and non-file entries', () => {
+  assert.throws(
+    () => buildFileMetadataUpdate({
+      input: { path: 'missing' },
+      existingStoredValue: null,
+    }),
+    /does not exist/,
+  );
+
+  assert.throws(
+    () => buildFileMetadataUpdate({
+      input: { path: 'post/text' },
+      existingStoredValue: buildStoredValue({ type: 'text', content: 'hello' }),
+    }),
+    /not a file entry/,
+  );
 });

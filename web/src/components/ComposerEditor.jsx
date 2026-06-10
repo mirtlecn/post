@@ -6,8 +6,10 @@ export function ComposerEditor({
   editorPlaceholder,
   fileInputRef,
   fileMeta,
+  fileMode,
   globalDragging,
   isTopicMode,
+  loading,
   metaFields,
   metaVisible,
   onClearSelectedFile,
@@ -24,7 +26,9 @@ export function ComposerEditor({
 }) {
   const CloseIcon = icons.close;
   const FileBadgeIcon = icons.fileBadge;
+  const LoadingIcon = icons.refresh;
   const UploadIcon = icons.file;
+  const fileMetaItems = fileMeta?.metaItems || [fileMeta?.size, 'File'].filter(Boolean);
 
   return (
     <div
@@ -34,8 +38,14 @@ export function ComposerEditor({
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
-      {metaFields}
-      {fileMeta ? (
+      {loading ? (
+        <div className="composer-loading-stage">
+          <LoadingIcon className="size-7 animate-spin" strokeWidth={2.2} />
+        </div>
+      ) : (
+        <>
+          {metaFields}
+          {fileMeta ? (
         <div className={`composer-file-stage ${metaVisible ? 'composer-file-stage-with-meta' : ''}`}>
           <div className="file-card">
             <div className="file-card-content">
@@ -48,17 +58,17 @@ export function ComposerEditor({
               <div className="file-card-details">
                 <div className="file-card-name text-lg font-semibold">{fileMeta.name}</div>
                 <div className="file-card-meta mt-2 text-sm text-base-content/60">
-                  <span>{fileMeta.size}</span>
-                  <span>File</span>
+                  {fileMetaItems.map((item) => <span key={item}>{item}</span>)}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      ) : (
+          ) : (
         <div className={`composer-editor ${metaVisible ? 'composer-editor-with-meta' : ''}`}>
           <textarea
             className={`textarea textarea-ghost composer-textarea ${metaVisible ? 'composer-textarea-with-meta' : 'composer-textarea-with-meta-icon'} ${globalDragging ? 'composer-textarea-hidden' : ''}`}
+            disabled={fileMode}
             onChange={(event) => onContentChange(event.target.value)}
             onKeyDown={onShortcut}
             onPaste={onPaste}
@@ -68,7 +78,7 @@ export function ComposerEditor({
           />
           {!isTopicMode && !contentValue.trim() && !globalDragging ? (
             <div className={`composer-hint ${metaVisible ? 'composer-hint-shifted' : ''}`}>
-              <span>Input texts or </span>
+              {fileMode ? null : <span>Input texts or </span>}
               <button className="composer-hint-upload" onClick={onOpenPicker} type="button">
                 upload a file
               </button>
@@ -82,6 +92,8 @@ export function ComposerEditor({
             </div>
           ) : null}
         </div>
+          )}
+        </>
       )}
       <input className="hidden" onChange={onFileInputChange} ref={fileInputRef} type="file" />
     </div>

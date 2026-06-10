@@ -82,6 +82,12 @@ export function buildRestoredForm(snapshot, fallbackTopic = '') {
   };
 }
 
+export function buildSubmittedPath(form) {
+  const path = form.path.trim();
+  if (!form.topic) return path;
+  return path ? `${form.topic}/${path}` : form.topic;
+}
+
 function padDatePart(value) {
   return String(value).padStart(2, '0');
 }
@@ -123,6 +129,12 @@ function formatRemainingTtl(ttl) {
   return String(Math.ceil(ttl));
 }
 
+function getPathBasename(path) {
+  if (path === '/') return '/';
+  const segments = path.split('/').filter(Boolean);
+  return segments.at(-1) || path || 'file';
+}
+
 export function buildEditComposerSnapshot(item, topics = []) {
   const type = item?.type || 'text';
   const path = item?.path || '';
@@ -145,16 +157,18 @@ export function buildEditComposerSnapshot(item, topics = []) {
 
   const topic = resolveItemTopic(path, topics);
   const relativePath = topic ? path.slice(topic.length + 1) : path;
+  const isFile = type === 'file';
 
   return {
-    convert: normalizeEditConvertType(type),
+    convert: isFile ? 'file' : normalizeEditConvertType(type),
     path: relativePath,
     title: item?.title || '',
     createdDate,
     createdTime,
     topic,
     ttl: formatRemainingTtl(item?.ttl),
-    content: type === 'file' ? '' : (item?.content || ''),
+    content: isFile ? '' : (item?.content || ''),
+    ...(isFile ? { existingFile: { name: getPathBasename(path), path } } : {}),
     metaOpen,
   };
 }
@@ -193,23 +207,38 @@ export function buildTextRequestBody(form) {
   return body;
 }
 
-export function buildFileUploadData(form, file) {
+export function buildFileMetadataRequestBody(form) {
+  const body = {
+    path: buildSubmittedPath(form),
+    type: 'file',
+    title: form.title.trim(),
+    ttl: form.ttl.trim() ? Number(form.ttl.trim()) : 0,
+  };
+  const created = buildCreatedValue(form);
+  if (created) body.created = created;
+  return body;
+}
+
+export function buildFileUploadData(form, file, { preservePath = false } = {}) {
   const data = new FormData();
   data.append('file', file);
-  if (form.path.trim()) data.append('path', form.path.trim());
+  const submittedPath = preservePath ? buildSubmittedPath(form) : form.path.trim();
+  if (submittedPath) data.append('path', submittedPath);
   if (form.title.trim()) data.append('title', form.title.trim());
   const created = buildCreatedValue(form);
   if (created) data.append('created', created);
-  if (form.topic) data.append('topic', form.topic);
+  if (!preservePath && form.topic) data.append('topic', form.topic);
   if (form.ttl.trim()) data.append('ttl', form.ttl.trim());
+  if (preservePath) data.append('preservePath', 'true');
   return data;
 }
 
-export function canSubmitComposerForm({ busy, file, form }) {
+export function canSubmitComposerForm({ busy, file, existingFile = null, fileEditMode = false, form }) {
   if (busy) return false;
   if (isTopicCreateType(form.convert)) {
-    return !file && Boolean(normalizeTopicNameValue(form.content.trim()));
+    return !file && !existingFile && !fileEditMode && Boolean(normalizeTopicNameValue(form.content.trim()));
   }
+  if (fileEditMode) return Boolean(file || existingFile);
   return Boolean(file || form.content.trim());
 }
 

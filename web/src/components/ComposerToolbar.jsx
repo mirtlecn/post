@@ -22,7 +22,7 @@ export function ComposerToolbar({
   busy,
   effectiveTtlPlaceholder,
   effectiveTtlSuffixVisible,
-  file,
+  fileMode,
   form,
   isTopicMode,
   menuButtonRef,
@@ -33,6 +33,7 @@ export function ComposerToolbar({
   onConvertSelect,
   onPathChange,
   onPathBlur,
+  pathLocked,
   onTopicBlur,
   onTopicChange,
   onTopicFocus,
@@ -56,13 +57,14 @@ export function ComposerToolbar({
   const TtlIcon = icons.clock;
   const currentConvertMeta = getConvertMeta(form.convert);
   const CurrentConvertIcon = currentConvertMeta.icon;
+  const topicControlLocked = isTopicMode || pathLocked;
 
   return (
     <div className="toolbar-grid">
       <div className="field-shell field-shell-fixed input input-bordered">
         <div
-          aria-disabled={isTopicMode}
-          className={`path-prefix-shell ${topicOpen ? 'path-prefix-shell-open' : ''} ${isTopicMode ? 'path-prefix-shell-disabled' : ''}`}
+          aria-disabled={topicControlLocked}
+          className={`path-prefix-shell ${topicOpen ? 'path-prefix-shell-open' : ''} ${topicControlLocked ? 'path-prefix-shell-disabled' : ''}`}
         >
           {topicPrefix ? (
             <span className="path-prefix-label" aria-hidden="true" title={topicPrefix}>
@@ -70,7 +72,7 @@ export function ComposerToolbar({
               <span className="path-prefix-label-slash">/</span>
             </span>
           ) : null}
-          {isTopicMode ? null : (
+          {topicControlLocked ? null : (
             <select
               className="select path-prefix-select"
               onBlur={onTopicBlur}
@@ -92,11 +94,13 @@ export function ComposerToolbar({
         {pathInputVisible ? (
           <input
             className="grow path-input"
+            disabled={pathLocked}
             maxLength={99}
             onBlur={onPathBlur}
             onChange={(event) => onPathChange(event.target.value)}
             pattern={PATH_PATTERN}
             placeholder={pathPlaceholder}
+            readOnly={pathLocked}
             title="1-99 chars: a-z A-Z 0-9 - _ . / ( )"
             value={form.path}
           />
@@ -129,7 +133,7 @@ export function ComposerToolbar({
         />
         {effectiveTtlSuffixVisible ? <span className="opacity-55">mins</span> : null}
       </div>
-      {file ? (
+      {fileMode ? (
         <div className="field-shell field-shell-fixed input input-bordered">
           <FileBadgeIcon className="size-4 opacity-60" strokeWidth={2} />
           <input disabled value="file" />

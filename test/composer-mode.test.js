@@ -5,6 +5,7 @@ import {
   buildEditComposerSnapshot,
   buildCreatedValue,
   buildFileUploadData,
+  buildFileMetadataRequestBody,
   buildInitialForm,
   buildTopicModeForm,
   buildRestoredForm,
@@ -69,6 +70,43 @@ test('buildTextRequestBody keeps regular composer payload fields outside topic m
     ttl: 60,
     convert: 'qrcode',
   });
+});
+
+test('buildFileMetadataRequestBody emits a full file update path and explicit empty title', () => {
+  const form = {
+    ...buildInitialForm('post'),
+    convert: 'file',
+    path: 'bo-ke',
+    title: '',
+    createdDate: '2026-03-20',
+    createdTime: '08:09',
+    ttl: '',
+    content: '',
+  };
+
+  assert.deepEqual(buildFileMetadataRequestBody(form), {
+    path: 'post/bo-ke',
+    type: 'file',
+    title: '',
+    ttl: 0,
+    created: '2026-03-20 08:09:00',
+  });
+});
+
+test('buildFileUploadData can preserve the exact existing path for file replacement', () => {
+  const form = {
+    ...buildInitialForm('post'),
+    path: 'bo-ke',
+    title: 'Book',
+    ttl: '30',
+  };
+  const data = buildFileUploadData(form, new Blob(['demo']), { preservePath: true });
+
+  assert.equal(data.get('path'), 'post/bo-ke');
+  assert.equal(data.get('title'), 'Book');
+  assert.equal(data.get('ttl'), '30');
+  assert.equal(data.get('topic'), null);
+  assert.equal(data.get('preservePath'), 'true');
 });
 
 test('buildTopicModeForm clears all fields and forces topic type', () => {
@@ -147,6 +185,31 @@ test('buildEditComposerSnapshot rebuilds topic-relative text entries', () => {
   );
 });
 
+test('buildEditComposerSnapshot rebuilds file entries with an existing file placeholder', () => {
+  assert.deepEqual(
+    buildEditComposerSnapshot({
+      path: 'post/bo-ke',
+      type: 'file',
+      title: 'Book',
+      created: '2026-03-20T08:09:00Z',
+      ttl: 7,
+      content: 'post/default/object-key.png',
+    }, [{ path: 'post' }]),
+    {
+      convert: 'file',
+      path: 'bo-ke',
+      title: 'Book',
+      createdDate: splitCreatedForComposer('2026-03-20T08:09:00Z').createdDate,
+      createdTime: splitCreatedForComposer('2026-03-20T08:09:00Z').createdTime,
+      topic: 'post',
+      ttl: '7',
+      content: '',
+      existingFile: { name: 'bo-ke', path: 'post/bo-ke' },
+      metaOpen: true,
+    },
+  );
+});
+
 test('buildEditComposerSnapshot rebuilds topic entries and clears ttl', () => {
   assert.deepEqual(
     buildEditComposerSnapshot({
@@ -202,6 +265,24 @@ test('canSubmitComposerForm supports normal text and file submits outside topic 
     busy: true,
     file: { name: 'demo.png' },
     form: { ...buildInitialForm(''), convert: 'none', content: '' },
+  }), false);
+});
+
+test('canSubmitComposerForm supports file edit placeholders and requires a file after removing one', () => {
+  assert.equal(canSubmitComposerForm({
+    busy: false,
+    existingFile: { name: 'bo-ke', path: 'post/bo-ke' },
+    fileEditMode: true,
+    file: null,
+    form: { ...buildInitialForm(''), convert: 'file', content: '' },
+  }), true);
+
+  assert.equal(canSubmitComposerForm({
+    busy: false,
+    existingFile: null,
+    fileEditMode: true,
+    file: null,
+    form: { ...buildInitialForm(''), convert: 'file', content: '' },
   }), false);
 });
 

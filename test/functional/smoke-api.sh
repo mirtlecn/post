@@ -281,6 +281,7 @@ if [ "$LAST_STATUS" = "501" ]; then
 else
   expect_status 201
   expect_body_contains "\"path\":\"$UPLOAD_FILE_PATH\""
+  UPLOAD_OBJECT_KEY="$(printf '%s' "$LAST_BODY" | sed -n 's/.*"content":"\([^"]*\)".*/\1/p')"
   request GET "$BASE_URL/$UPLOAD_FILE_PATH"
   expect_status 200
   expect_header_contains "^cache-control: public, max-age=86400, s-maxage=86400"
@@ -288,6 +289,14 @@ else
   FILE_META_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:filemeta:$UPLOAD_FILE_PATH")"
   expect_equals "$FILE_CACHE_EXISTS" "1"
   expect_equals "$FILE_META_CACHE_EXISTS" "1"
+  request POST "$BASE_URL/update" "{\"path\":\"$UPLOAD_FILE_PATH\",\"type\":\"file\",\"title\":\"File Metadata Updated\",\"ttl\":0}" \
+    -H "Authorization: Bearer $SECRET_KEY" \
+    -H "Content-Type: application/json"
+  expect_status 200
+  expect_body_contains "\"path\":\"$UPLOAD_FILE_PATH\""
+  expect_body_contains "\"type\":\"file\""
+  expect_body_contains "\"title\":\"File Metadata Updated\""
+  expect_body_contains "\"content\":\"$UPLOAD_OBJECT_KEY\""
   request POST "$BASE_URL/delete" "{\"path\":\"$UPLOAD_FILE_PATH\"}" \
     -H "Authorization: Bearer $SECRET_KEY" \
     -H "Content-Type: application/json"

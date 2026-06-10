@@ -121,14 +121,14 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
     return () => observer.disconnect();
   }, [hasMore, loadMoreItems, rows.length]);
 
-  const tableClassName = isMobile ? 'table table-zebra w-full' : 'table table-zebra table-fixed w-full';
+  const tableClassName = isMobile ? 'table table-zebra list-table-mobile' : 'table table-zebra table-fixed w-full';
   const pathColumnClassName = isMobile ? 'w-[10rem] max-w-[10rem]' : 'w-[18rem] max-w-[18rem]';
   const metaColumnClassName = isMobile ? 'w-[8.5rem] max-w-[8.5rem]' : 'w-[12rem] max-w-[12rem]';
   const actionColumnClassName = isMobile ? 'w-[10rem] text-right' : 'w-[13rem] text-right';
   const previewColumnClassName = isMobile ? 'min-w-[8rem] max-w-[10rem] truncate text-base-content/62' : 'max-w-md truncate text-base-content/62';
 
   return (
-    <section className="pt-2">
+    <section className="list-panel-section pt-2">
       <div className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">Links</div>
       <div
         className="list-scroll max-h-[30rem] overflow-auto rounded-[1.5rem] border border-base-300/70"

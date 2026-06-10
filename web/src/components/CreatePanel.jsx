@@ -19,7 +19,7 @@ export function CreatePanel(props) {
   const createdTimeRef = useRef(null);
   const menu = useComposerMenu();
   const dragAndPaste = useComposerDragAndPaste({
-    disabled: composer.isTopicMode,
+    disabled: composer.isTopicMode || props.editLoading,
     onSelectFile: composer.setFile,
   });
   const topicMode = useTopicModeRestore({
@@ -126,8 +126,9 @@ export function CreatePanel(props) {
   }
 
   function clearSelectedFile() {
-    composer.reset();
-    props.onFilterChange?.({ path: '', ttl: '', type: 'none' });
+    const wasFileEditMode = composer.fileEditMode;
+    composer.clearSelectedFile();
+    if (!wasFileEditMode) props.onFilterChange?.({ path: '', ttl: '', type: 'none' });
     dragAndPaste.clearSelectedFile();
   }
 
@@ -147,6 +148,10 @@ export function CreatePanel(props) {
   }
 
   async function onSubmit(event) {
+    if (props.editLoading) {
+      event.preventDefault();
+      return;
+    }
     await topicMode.submit(event);
   }
 
@@ -181,8 +186,10 @@ export function CreatePanel(props) {
           editorPlaceholder={editorPlaceholder}
           fileInputRef={dragAndPaste.fileInputRef}
           fileMeta={composer.fileMeta}
+          fileMode={composer.isFileMode}
           globalDragging={dragAndPaste.globalDragging}
           isTopicMode={composer.isTopicMode}
+          loading={props.editLoading}
           metaFields={(
             <ComposerMetaFields
               createdDateRef={createdDateRef}
@@ -214,10 +221,10 @@ export function CreatePanel(props) {
         />
         <ComposerToolbar
           busy={composer.busy}
-          canSubmit={composer.canSubmit}
+          canSubmit={!props.editLoading && composer.canSubmit}
           effectiveTtlPlaceholder={effectiveTtlPlaceholder}
           effectiveTtlSuffixVisible={effectiveTtlSuffixVisible}
-          file={composer.file}
+          fileMode={composer.isFileMode}
           form={composer.form}
           isTopicMode={composer.isTopicMode}
           menuButtonRef={menu.menuButtonRef}
@@ -228,6 +235,7 @@ export function CreatePanel(props) {
           onConvertSelect={onConvertSelect}
           onPathBlur={() => props.onFilterChange?.({ path: composer.form.path })}
           onPathChange={composer.updatePath}
+          pathLocked={composer.fileEditMode}
           onTopicBlur={() => setTopicOpen(false)}
           onTopicChange={onTopicChange}
           onTopicFocus={() => setTopicOpen(true)}

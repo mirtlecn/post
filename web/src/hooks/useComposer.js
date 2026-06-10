@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createRequest, updateFile, updateRequest, uploadFile } from '../lib/api.js';
 import {
   buildFileUploadData,
+  buildFileMetadataRequestBody,
   buildInitialForm,
   buildRestoredForm,
   buildTextRequestBody,
@@ -33,9 +34,19 @@ function getFileMeta(file) {
   };
 }
 
+function getExistingFileMeta(existingFile) {
+  if (!existingFile) return null;
+  return {
+    name: existingFile.name,
+    metaItems: ['Current file'],
+  };
+}
+
 export function useComposer({ notify, onCreated, selectedTopicPath = '', topics = [] }) {
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState(null);
+  const [existingFile, setExistingFile] = useState(null);
+  const [fileEditMode, setFileEditMode] = useState(false);
   const [form, setForm] = useState(buildInitialForm(selectedTopicPath));
   const isTopicMode = isTopicCreateType(form.convert);
   const updateFormValue = (fieldName, fieldValue) =>
@@ -84,13 +95,27 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
   }
 
   async function submitMutation({ allowOverwrite = false } = {}) {
-    return file ? submitFile({ allowOverwrite }) : submitText({ allowOverwrite });
+    if (file) {
+      return submitFile({ allowOverwrite: allowOverwrite || fileEditMode, preservePath: fileEditMode });
+    }
+    if (existingFile) {
+      return submitExistingFileMetadata();
+    }
+
+    return submitText({ allowOverwrite });
   }
 
-  async function submitFile({ allowOverwrite = false } = {}) {
-    const data = buildFileUploadData(form, file);
+  async function submitFile({ allowOverwrite = false, preservePath = false } = {}) {
+    const data = buildFileUploadData(form, file, { preservePath });
     const payload = await (allowOverwrite ? updateFile(data) : uploadFile(data));
     notify('success', allowOverwrite ? 'Updated' : 'Uploaded');
+    return payload;
+  }
+
+  async function submitExistingFileMetadata() {
+    const body = buildFileMetadataRequestBody(form);
+    const payload = await updateRequest({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    notify('success', 'Updated');
     return payload;
   }
 
@@ -133,18 +158,39 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     updateFormValue('path', '');
   }
 
+  function selectFile(nextFile) {
+    setFile(nextFile);
+    if (nextFile) setExistingFile(null);
+  }
+
+  function clearSelectedFile() {
+    if (fileEditMode) {
+      setFile(null);
+      setExistingFile(null);
+      return;
+    }
+
+    reset();
+  }
+
   function reset(nextForm) {
     setFile(null);
+    setExistingFile(null);
+    setFileEditMode(false);
     setForm(nextForm ? buildRestoredForm(nextForm, selectedTopicPath) : buildInitialForm(selectedTopicPath));
   }
 
   function enterTopicMode() {
     setFile(null);
+    setExistingFile(null);
+    setFileEditMode(false);
     setForm(buildTopicModeForm());
   }
 
   function restoreForm(snapshot) {
     setFile(null);
+    setExistingFile(snapshot?.existingFile || null);
+    setFileEditMode(Boolean(snapshot?.existingFile));
     setForm(buildRestoredForm(snapshot, selectedTopicPath));
   }
 
@@ -159,26 +205,31 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     submit(event);
   }
 
-  const fileMeta = getFileMeta(file);
+  const fileMeta = file ? getFileMeta(file) : getExistingFileMeta(existingFile);
   const selectedTopic = useMemo(
     () => topics.find((item) => item.path === form.topic) || null,
     [form.topic, topics],
   );
-  const canSubmit = canSubmitComposerForm({ busy, file, form });
+  const canSubmit = canSubmitComposerForm({ busy, existingFile, file, fileEditMode, form });
+  const isFileMode = Boolean(file || existingFile || fileEditMode);
 
   return {
     busy,
     canSubmit,
+    clearSelectedFile,
     enterTopicMode,
+    existingFile,
     file,
+    fileEditMode,
     fileMeta,
     form,
+    isFileMode,
     isTopicMode,
     selectedTopic,
     onShortcut,
     reset,
     restoreForm,
-    setFile,
+    setFile: selectFile,
     submit,
     updatePath,
     updateTitle,
