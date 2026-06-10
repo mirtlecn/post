@@ -68,25 +68,7 @@ Required:
 
 ### EdgeOne Pages
 
-Config:
-
-- Build: `npm run build`
-- Output: `public`
-- Node: `24.5.0`
-- Env: `LINKS_REDIS_URL`, `SECRET_KEY`, `ADMIN_KEY`, `BASE_DOMAIN`, `FOOTER`
-- Upload: S3 vars, `MAX_FILE_SIZE_MB=5`
-
-Deploy:
-
-```bash
-edgeone pages deploy -e preview
-```
-
-Smoke:
-
-```bash
-BASE_URL=https://www.example.com SECRET_KEY=<secret> ADMIN_PASSWORD=<admin-key> MODE=edgeone bash test/functional/test-functional.sh
-```
+Same as Vercel.
 
 ### Run
 
