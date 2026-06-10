@@ -18,4 +18,7 @@ trap cleanup EXIT
 cd "$ROOT_DIR"
 start_local_server
 
-BASE_URL="http://localhost:$PORT" MODE="local" bash "$ROOT_DIR/test/functional/test-functional.sh"
+BASE_URL="http://localhost:$PORT" \
+MODE="local" \
+SECRET_KEY="$SECRET_KEY" \
+bash "$ROOT_DIR/test/functional/test-functional.sh"

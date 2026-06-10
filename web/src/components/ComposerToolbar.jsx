@@ -120,14 +120,14 @@ export function ComposerToolbar({
         <input
           className="grow"
           disabled={ttlDisabled}
-          inputMode="numeric"
+          inputMode="text"
           min={0}
           onBlur={onTtlBlur}
           onChange={(event) => onTtlChange(event.target.value)}
           onFocus={onTtlFocus}
-          pattern="[0-9]*"
+          pattern="[0-9*]*"
           placeholder={effectiveTtlPlaceholder}
-          title="Leave empty to never expire"
+          title="Use minutes or multiplication, e.g. 60*24. Leave empty to never expire"
           type="text"
           value={form.ttl}
         />

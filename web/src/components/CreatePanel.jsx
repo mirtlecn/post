@@ -6,7 +6,7 @@ import { useComposer } from '../hooks/useComposer.js';
 import { useComposerDragAndPaste } from '../hooks/useComposerDragAndPaste.js';
 import { useComposerMenu } from '../hooks/useComposerMenu.js';
 import { useTopicModeRestore } from '../hooks/useTopicModeRestore.js';
-import { formatTopicLabel, getComposerUiState } from '../lib/composer-mode.js';
+import { formatTopicLabel, getComposerUiState, resolveTtlMinutes } from '../lib/composer-mode.js';
 
 export function CreatePanel(props) {
   const composer = useComposer(props);
@@ -49,7 +49,7 @@ export function CreatePanel(props) {
     ttlPlaceholder,
     ttlSuffixVisible,
   } = uiState;
-  const effectiveTtlPlaceholder = ttlFocused ? '' : ttlPlaceholder;
+  const effectiveTtlPlaceholder = ttlFocused && !composer.form.ttl.trim() ? '60*24' : ttlPlaceholder;
   const effectiveTtlSuffixVisible = ttlFocused || ttlSuffixVisible;
 
   useEffect(() => {
@@ -242,7 +242,8 @@ export function CreatePanel(props) {
           onTopicPointerDown={() => setTopicOpen(true)}
           onTtlBlur={() => {
             setTtlFocused(false);
-            props.onFilterChange?.({ ttl: composer.form.ttl });
+            const ttl = resolveTtlMinutes(composer.form.ttl);
+            props.onFilterChange?.({ ttl: ttl === null ? '' : String(ttl) });
           }}
           onTtlChange={composer.updateTtl}
           onTtlFocus={() => setTtlFocused(true)}

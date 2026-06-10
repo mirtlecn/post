@@ -13,7 +13,9 @@ import {
   canSubmitComposerForm,
   formatTopicLabel,
   getComposerUiState,
+  normalizeTtlValue,
   normalizeTopicNameValue,
+  resolveTtlMinutes,
   splitCreatedForComposer,
 } from '../web/src/lib/composer-mode.js';
 
@@ -25,6 +27,22 @@ test('normalizeTopicNameValue matches path rules, strips newlines, and rejects a
 test('formatTopicLabel keeps a trailing slash while truncating long topic labels', () => {
   assert.equal(formatTopicLabel('anime'), 'anime/');
   assert.equal(formatTopicLabel('12345678901234567890'), '12345678901234…/');
+});
+
+test('normalizeTtlValue allows multiplication expressions only', () => {
+  assert.equal(normalizeTtlValue('60*24'), '60*24');
+  assert.equal(normalizeTtlValue(' 60 * 24 mins '), '60*24');
+});
+
+test('resolveTtlMinutes evaluates multiplication and treats empty factors as one', () => {
+  assert.equal(resolveTtlMinutes(''), null);
+  assert.equal(resolveTtlMinutes('60*24'), 1440);
+  assert.equal(resolveTtlMinutes('60*'), 60);
+  assert.equal(resolveTtlMinutes('*60'), 60);
+  assert.equal(resolveTtlMinutes('*'), 1);
+  assert.equal(resolveTtlMinutes('60**24'), 1440);
+  assert.equal(resolveTtlMinutes('0*60'), 0);
+  assert.equal(resolveTtlMinutes('9999999999999999*9999999999999999'), Number.MAX_SAFE_INTEGER);
 });
 
 test('buildTextRequestBody emits topic mutation payload for topic mode', () => {
@@ -72,6 +90,23 @@ test('buildTextRequestBody keeps regular composer payload fields outside topic m
   });
 });
 
+test('buildTextRequestBody resolves ttl expressions before submit', () => {
+  const form = {
+    ...buildInitialForm(''),
+    convert: 'text',
+    path: 'ttl-expression',
+    ttl: '60*24',
+    content: 'hello',
+  };
+
+  assert.deepEqual(buildTextRequestBody(form), {
+    url: 'hello',
+    path: 'ttl-expression',
+    ttl: 1440,
+    convert: 'text',
+  });
+});
+
 test('buildFileMetadataRequestBody emits a full file update path and explicit empty title', () => {
   const form = {
     ...buildInitialForm('post'),
@@ -93,6 +128,24 @@ test('buildFileMetadataRequestBody emits a full file update path and explicit em
   });
 });
 
+test('buildFileMetadataRequestBody resolves ttl expressions before submit', () => {
+  const form = {
+    ...buildInitialForm('post'),
+    convert: 'file',
+    path: 'bo-ke',
+    title: '',
+    ttl: '60*24',
+    content: '',
+  };
+
+  assert.deepEqual(buildFileMetadataRequestBody(form), {
+    path: 'post/bo-ke',
+    type: 'file',
+    title: '',
+    ttl: 1440,
+  });
+});
+
 test('buildFileUploadData can preserve the exact existing path for file replacement', () => {
   const form = {
     ...buildInitialForm('post'),
@@ -107,6 +160,17 @@ test('buildFileUploadData can preserve the exact existing path for file replacem
   assert.equal(data.get('ttl'), '30');
   assert.equal(data.get('topic'), null);
   assert.equal(data.get('preservePath'), 'true');
+});
+
+test('buildFileUploadData resolves ttl expressions for form uploads', () => {
+  const form = {
+    ...buildInitialForm('post'),
+    path: 'bo-ke',
+    ttl: '60*24',
+  };
+  const data = buildFileUploadData(form, new Blob(['demo']));
+
+  assert.equal(data.get('ttl'), '1440');
 });
 
 test('buildTopicModeForm clears all fields and forces topic type', () => {

@@ -2,6 +2,8 @@ export const TOPIC_CREATE_TYPE = 'topic';
 const TOPIC_LABEL_MAX_CHARS = 16;
 
 const PATH_SANITIZE_PATTERN = /[^a-zA-Z0-9_.\-()/]/g;
+const TTL_SANITIZE_PATTERN = /[^0-9*]/g;
+const MAX_SAFE_TTL_MINUTES = Number.MAX_SAFE_INTEGER;
 const CREATED_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CREATED_TIME_PATTERN = /^\d{2}:\d{2}$/;
 const EDITABLE_CONVERT_TYPES = new Set(['url', 'text', 'html', 'qrcode']);
@@ -41,7 +43,24 @@ export function normalizePathValue(value) {
 }
 
 export function normalizeTtlValue(value) {
-  return value.replace(/\D/g, '');
+  return value.replace(TTL_SANITIZE_PATTERN, '');
+}
+
+export function resolveTtlMinutes(value) {
+  const expression = String(value ?? '').trim();
+  if (!expression) return null;
+
+  const normalizedExpression = normalizeTtlValue(expression);
+  if (!normalizedExpression) return null;
+
+  return normalizedExpression.split('*').reduce((product, factor) => {
+    const multiplier = factor ? Number.parseInt(factor, 10) : 1;
+    if (product === 0) return 0;
+    if (!Number.isFinite(multiplier)) return MAX_SAFE_TTL_MINUTES;
+    if (multiplier === 0) return 0;
+    if (multiplier > MAX_SAFE_TTL_MINUTES / product) return MAX_SAFE_TTL_MINUTES;
+    return product * multiplier;
+  }, 1);
 }
 
 export function normalizeTopicNameValue(value) {
@@ -202,17 +221,19 @@ export function buildTextRequestBody(form) {
   if (form.title.trim()) body.title = form.title.trim();
   if (created) body.created = created;
   if (form.topic) body.topic = form.topic;
-  if (form.ttl.trim()) body.ttl = Number(form.ttl.trim());
+  const ttl = resolveTtlMinutes(form.ttl);
+  if (ttl !== null) body.ttl = ttl;
   if (form.convert !== 'none') body.convert = form.convert;
   return body;
 }
 
 export function buildFileMetadataRequestBody(form) {
+  const ttl = resolveTtlMinutes(form.ttl);
   const body = {
     path: buildSubmittedPath(form),
     type: 'file',
     title: form.title.trim(),
-    ttl: form.ttl.trim() ? Number(form.ttl.trim()) : 0,
+    ttl: ttl ?? 0,
   };
   const created = buildCreatedValue(form);
   if (created) body.created = created;
@@ -228,7 +249,8 @@ export function buildFileUploadData(form, file, { preservePath = false } = {}) {
   const created = buildCreatedValue(form);
   if (created) data.append('created', created);
   if (!preservePath && form.topic) data.append('topic', form.topic);
-  if (form.ttl.trim()) data.append('ttl', form.ttl.trim());
+  const ttl = resolveTtlMinutes(form.ttl);
+  if (ttl !== null) data.append('ttl', String(ttl));
   if (preservePath) data.append('preservePath', 'true');
   return data;
 }
