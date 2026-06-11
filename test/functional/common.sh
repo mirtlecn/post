@@ -211,7 +211,9 @@ function start_local_server() {
   local env_args=(
     "LINKS_REDIS_URL=redis://localhost:6379/$REDIS_DB"
     "SECRET_KEY=$SECRET_KEY"
+    "ADMIN_KEY=${ADMIN_KEY:-$SECRET_KEY}"
     "FOOTER=${FOOTER:-}"
+    "BASE_DOMAIN="
     "PORT=$PORT"
   )
   local env_name
@@ -225,9 +227,7 @@ function start_local_server() {
     S3_REGION \
     S3_FORCE_PATH_STYLE
   do
-    if [ -n "${!env_name:-}" ]; then
-      env_args+=("$env_name=${!env_name}")
-    fi
+    env_args+=("$env_name=${!env_name:-}")
   done
 
   env "${env_args[@]}" npm start >"$LOG_FILE" 2>&1 &
