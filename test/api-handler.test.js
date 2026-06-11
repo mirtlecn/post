@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import adminHandler from '../api/admin.js';
+import adminUploadCompleteHandler from '../api/admin/upload/complete.js';
+import adminUploadPrepareHandler from '../api/admin/upload/prepare.js';
 import { createApiHandler } from '../api/index.js';
 import { createAdminApiHandler } from '../api/admin.js';
 import { ADMIN_ACTIONS, createActionApiHandler } from '../lib/handlers/action-router.js';
@@ -182,4 +185,9 @@ test('createAdminApiHandler routes admin direct upload actions', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(calls, [['POST', '/api/admin/upload/prepare', `Bearer ${process.env.SECRET_KEY}`]]);
+});
+
+test('vercel admin upload route files reuse the admin handler', () => {
+  assert.equal(adminUploadPrepareHandler, adminHandler);
+  assert.equal(adminUploadCompleteHandler, adminHandler);
 });

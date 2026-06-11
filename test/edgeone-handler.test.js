@@ -111,6 +111,9 @@ test('edgeone handler routes admin session, admin action api, and public paths',
   const adminResponse = await handler({
     request: new Request('https://post.example/api/admin/query', { method: 'POST' }),
   });
+  const adminUploadResponse = await handler({
+    request: new Request('https://post.example/api/admin/upload/prepare', { method: 'POST' }),
+  });
   const rootResponse = await handler({
     request: new Request('https://post.example/topic/item?export=1', { method: 'GET' }),
   });
@@ -118,10 +121,12 @@ test('edgeone handler routes admin session, admin action api, and public paths',
   assert.equal(process.env.SECRET_KEY, 'edge-secret');
   assert.equal(await sessionResponse.text(), 'session');
   assert.equal(await adminResponse.text(), 'admin');
+  assert.equal(await adminUploadResponse.text(), 'admin');
   assert.equal(await rootResponse.text(), 'root');
   assert.deepEqual(calls, [
     ['session', '/api/admin/session'],
     ['admin', '/api/admin/query'],
+    ['admin', '/api/admin/upload/prepare'],
     ['root', '/topic/item?export=1'],
   ]);
 });

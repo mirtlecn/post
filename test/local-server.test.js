@@ -64,7 +64,8 @@ test('local request handler routes admin action api paths to admin handler', asy
   });
 
   await handler(createMockRequest({ method: 'POST', url: '/api/admin/create' }), createMockResponse());
-  assert.deepEqual(calls, ['admin']);
+  await handler(createMockRequest({ method: 'POST', url: '/api/admin/upload/prepare' }), createMockResponse());
+  assert.deepEqual(calls, ['admin', 'admin']);
 });
 
 test('local request handler returns not built message when admin shell is missing', async () => {
