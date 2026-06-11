@@ -15,23 +15,13 @@ if (missingEnvironmentVariables.length > 0) {
   process.exit(1);
 }
 
-const [
-  { default: handleRoot },
-  { default: handleAdmin },
-  { default: handleAdminSession },
-] = await Promise.all([
-  import('./api/index.js'),
-  import('./api/admin.js'),
-  import('./api/admin/session.js'),
-]);
+const { default: handleRoot } = await import('./api/index.js');
 
 const port = process.env.PORT || 3000;
 const adminDirectory = resolve(process.cwd(), 'public', 'admin');
 const requestHandler = createLocalRequestHandler({
   adminDirectory,
   handleRoot,
-  handleAdmin,
-  handleAdminSession,
 });
 
 createServer(requestHandler).listen(port, () => {

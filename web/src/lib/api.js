@@ -26,7 +26,7 @@ async function requestJson(url, init = {}, fallbackMessage) {
 }
 
 export async function apiRequest(init = {}) {
-  return requestJson(`${API_ROOT}/query`, {
+  return requestJson(`${API_ROOT}?admin=query`, {
     method: 'POST',
     ...init,
   }, 'Request failed');
@@ -45,35 +45,35 @@ export async function lookupItem(path, type = '') {
 }
 
 export async function uploadFile(formData) {
-  return requestJson(`${API_ROOT}/create`, {
+  return requestJson(`${API_ROOT}?admin=create`, {
     method: 'POST',
     body: formData,
   }, 'Upload failed');
 }
 
 export async function updateFile(formData) {
-  return requestJson(`${API_ROOT}/update`, {
+  return requestJson(`${API_ROOT}?admin=update`, {
     method: 'POST',
     body: formData,
   }, 'Update failed');
 }
 
 export async function createRequest(init = {}) {
-  return requestJson(`${API_ROOT}/create`, {
+  return requestJson(`${API_ROOT}?admin=create`, {
     method: 'POST',
     ...init,
   }, 'Request failed');
 }
 
 export async function updateRequest(init = {}) {
-  return requestJson(`${API_ROOT}/update`, {
+  return requestJson(`${API_ROOT}?admin=update`, {
     method: 'POST',
     ...init,
   }, 'Update failed');
 }
 
 export async function deleteRequest(init = {}) {
-  return requestJson(`${API_ROOT}/delete`, {
+  return requestJson(`${API_ROOT}?admin=delete`, {
     method: 'POST',
     ...init,
   }, 'Request failed');

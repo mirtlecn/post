@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdminSessionHandler } from '../api/admin/session.js';
+import { createAdminSessionHandler } from '../lib/server/admin-session-handler.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
 test('admin session handler creates a redis-backed session cookie on login', async () => {
@@ -18,7 +18,10 @@ test('admin session handler creates a redis-backed session cookie on login', asy
 
   assert.equal(response.statusCode, 200);
   assert.match(response.body, /"authenticated":true/);
-  assert.match(response.getHeader('set-cookie'), /^post_admin_session=session-123/);
+  assert.deepEqual(response.getHeader('set-cookie'), [
+    'post_admin_session=session-123; Max-Age=604800; Path=/api; HttpOnly; SameSite=Lax',
+    'post_admin_session=; Max-Age=0; Path=/api/admin; HttpOnly; SameSite=Lax',
+  ]);
   calls.push('done');
   assert.deepEqual(calls, ['done']);
 });
@@ -65,5 +68,8 @@ test('admin session handler removes the current session on logout', async () => 
 
   assert.equal(removedRequest, request);
   assert.equal(response.statusCode, 200);
-  assert.match(response.getHeader('set-cookie'), /Max-Age=0/);
+  assert.deepEqual(response.getHeader('set-cookie'), [
+    'post_admin_session=; Max-Age=0; Path=/api; HttpOnly; SameSite=Lax',
+    'post_admin_session=; Max-Age=0; Path=/api/admin; HttpOnly; SameSite=Lax',
+  ]);
 });

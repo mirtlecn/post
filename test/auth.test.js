@@ -53,6 +53,7 @@ test('createAdminSession stores a random redis-backed session and cookie', async
   assert.equal(redis.ttls.get(sessionKey), ADMIN_SESSION_MAX_AGE);
   assert.match(redis.values.get(sessionKey), /"type":"admin"/);
   assert.match(cookie, new RegExp(`^${ADMIN_SESSION_COOKIE}=`));
+  assert.match(cookie, /Path=\/api(?:;|$)/);
 });
 
 test('isAdminSessionAuthenticated checks redis-backed session state', async () => {
@@ -85,6 +86,7 @@ test('deleteAdminSession removes the current redis session and logout cookie exp
   );
   assert.equal(await redis.get(`admin:session:${sessionId}`), null);
   assert.match(buildAdminLogoutCookie(), /Max-Age=0/);
+  assert.match(buildAdminLogoutCookie(), /Path=\/api(?:;|$)/);
 });
 
 test('isAdminRequestAuthenticated keeps bearer admin key compatibility', async () => {

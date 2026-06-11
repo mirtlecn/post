@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdminApiHandler } from '../api/admin.js';
+import { createAdminApiHandler } from '../lib/server/admin-api-handler.js';
 import { createApiHandler } from '../api/index.js';
 import { createEdgeOneRequestHandler } from '../cloud-functions/post-handler.js';
 import { createFetchNodeAdapters } from '../lib/server/fetch-node-adapter.js';
@@ -41,7 +41,7 @@ test('fetch node adapter sends json action requests through existing api handler
 
 test('fetch node adapter keeps admin request wrappers body-readable', async () => {
   process.env.SECRET_KEY = 'edge-secret';
-  const request = new Request('https://post.example/api/admin/create', {
+  const request = new Request('https://post.example/api?admin=create', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -51,9 +51,10 @@ test('fetch node adapter keeps admin request wrappers body-readable', async () =
   const { req, res } = await createFetchNodeAdapters(request);
   const handler = createAdminApiHandler({
     authenticate: () => true,
-    apiHandler: async (requestLike, responseLike) => {
+    onAction: async (action, requestLike, responseLike) => {
       const body = await parseRequestBodyWithLimit(requestLike);
       return jsonResponse(responseLike, {
+        action,
         authorization: requestLike.headers.authorization,
         body,
       }, 200);
@@ -64,28 +65,29 @@ test('fetch node adapter keeps admin request wrappers body-readable', async () =
   const response = await res.toFetchResponse({ method: req.method });
   const payload = await response.json();
 
+  assert.equal(payload.action, 'create');
   assert.equal(payload.authorization, 'Bearer edge-secret');
   assert.deepEqual(payload.body, { path: 'admin-note', url: 'hello' });
 });
 
 test('fetch node adapter preserves status, headers, and set-cookie', async () => {
-  const request = new Request('https://post.example/api/admin/session', { method: 'POST' });
+  const request = new Request('https://post.example/api?admin=session', { method: 'POST' });
   const { req, res } = await createFetchNodeAdapters(request);
 
   res.status(202);
-  res.setHeader('Set-Cookie', 'post_admin_session=session-123; Path=/api/admin; HttpOnly');
+  res.setHeader('Set-Cookie', 'post_admin_session=session-123; Path=/api; HttpOnly');
   res.setHeader('X-Test-Header', 'edgeone');
   res.send('ok');
 
   const response = await res.toFetchResponse({ method: req.method });
 
   assert.equal(response.status, 202);
-  assert.equal(response.headers.get('set-cookie'), 'post_admin_session=session-123; Path=/api/admin; HttpOnly');
+  assert.equal(response.headers.get('set-cookie'), 'post_admin_session=session-123; Path=/api; HttpOnly');
   assert.equal(response.headers.get('x-test-header'), 'edgeone');
   assert.equal(await response.text(), 'ok');
 });
 
-test('edgeone handler routes admin session, admin action api, and public paths', async () => {
+test('edgeone handler routes all requests through the unified api handler', async () => {
   const calls = [];
   const handler = createEdgeOneRequestHandler({
     loadHandlers: async () => ({
@@ -93,35 +95,27 @@ test('edgeone handler routes admin session, admin action api, and public paths',
         calls.push(['root', req.url]);
         res.status(200).send('root');
       },
-      handleAdmin: async (req, res) => {
-        calls.push(['admin', req.url]);
-        res.status(200).send('admin');
-      },
-      handleAdminSession: async (req, res) => {
-        calls.push(['session', req.url]);
-        res.status(200).send('session');
-      },
     }),
   });
 
   const sessionResponse = await handler({
     env: { SECRET_KEY: 'edge-secret' },
-    request: new Request('https://post.example/api/admin/session', { method: 'GET' }),
+    request: new Request('https://post.example/api?admin=session', { method: 'GET' }),
   });
   const adminResponse = await handler({
-    request: new Request('https://post.example/api/admin/query', { method: 'POST' }),
+    request: new Request('https://post.example/api?admin=query', { method: 'POST' }),
   });
   const rootResponse = await handler({
     request: new Request('https://post.example/topic/item?export=1', { method: 'GET' }),
   });
 
   assert.equal(process.env.SECRET_KEY, 'edge-secret');
-  assert.equal(await sessionResponse.text(), 'session');
-  assert.equal(await adminResponse.text(), 'admin');
+  assert.equal(await sessionResponse.text(), 'root');
+  assert.equal(await adminResponse.text(), 'root');
   assert.equal(await rootResponse.text(), 'root');
   assert.deepEqual(calls, [
-    ['session', '/api/admin/session'],
-    ['admin', '/api/admin/query'],
+    ['root', '/api?admin=session'],
+    ['root', '/api?admin=query'],
     ['root', '/topic/item?export=1'],
   ]);
 });
@@ -131,12 +125,6 @@ test('edgeone handler syncs BASE_DOMAIN and disables unsafe cache', async () => 
   const handler = createEdgeOneRequestHandler({
     loadHandlers: async () => ({
       handleRoot: async (req, res) => {
-        jsonResponse(res, { domain: getDomain(req) }, 200);
-      },
-      handleAdmin: async (req, res) => {
-        jsonResponse(res, { domain: getDomain(req) }, 200);
-      },
-      handleAdminSession: async (req, res) => {
         jsonResponse(res, { domain: getDomain(req) }, 200);
       },
     }),

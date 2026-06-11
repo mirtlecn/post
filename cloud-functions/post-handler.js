@@ -38,32 +38,14 @@ async function loadApiHandlers() {
   if (!handlersPromise) {
     handlersPromise = Promise.all([
       import('../api/index.js'),
-      import('../api/admin.js'),
-      import('../api/admin/session.js'),
     ]).then(([
       { default: handleRoot },
-      { default: handleAdmin },
-      { default: handleAdminSession },
     ]) => ({
       handleRoot,
-      handleAdmin,
-      handleAdminSession,
     }));
   }
 
   return handlersPromise;
-}
-
-export function selectEdgeOneHandler(pathname, handlers) {
-  if (pathname === '/api/admin/session') {
-    return handlers.handleAdminSession;
-  }
-
-  if (pathname === '/api/admin' || pathname.startsWith('/api/admin/')) {
-    return handlers.handleAdmin;
-  }
-
-  return handlers.handleRoot;
 }
 
 function shouldDisableEdgeOneCache(response, pathname) {
@@ -92,10 +74,9 @@ export function createEdgeOneRequestHandler({
     const request = getContextRequest(context);
     const requestUrl = new URL(request.url, 'http://localhost');
     const handlers = await loadHandlers();
-    const handler = selectEdgeOneHandler(requestUrl.pathname, handlers);
     const { req, res } = await createFetchNodeAdapters(request);
 
-    await handler(req, res);
+    await handlers.handleRoot(req, res);
     const response = await res.toFetchResponse({ method: req.method });
     return applyEdgeOneResponsePolicy(response, requestUrl);
   };

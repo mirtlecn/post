@@ -151,12 +151,12 @@ fi
 log "管理页子路径收紧通过"
 
 CURRENT_STEP="管理鉴权未登录"
-request GET "$BASE_URL/api/admin/session" ""
+request GET "$BASE_URL/api?admin=session" ""
 expect_status 401
 log "管理未登录鉴权通过"
 
 CURRENT_STEP="管理登录"
-request POST "$BASE_URL/api/admin/session" "{\"password\":\"$ADMIN_PASSWORD\"}" \
+request POST "$BASE_URL/api?admin=session" "{\"password\":\"$ADMIN_PASSWORD\"}" \
   -c "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -167,32 +167,37 @@ fi
 log "管理登录通过"
 
 CURRENT_STEP="管理会话检查"
-request GET "$BASE_URL/api/admin/session" "" -b "$COOKIE_JAR"
+request GET "$BASE_URL/api?admin=session" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains '"authenticated":true'
 log "管理会话通过"
 
 CURRENT_STEP="管理登出"
-request DELETE "$BASE_URL/api/admin/session" "" -b "$COOKIE_JAR"
+request DELETE "$BASE_URL/api?admin=session" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains '"ok":true'
 log "管理登出通过"
 
 CURRENT_STEP="管理登出后会话失效"
-request GET "$BASE_URL/api/admin/session" "" -b "$COOKIE_JAR"
+request GET "$BASE_URL/api?admin=session" "" -b "$COOKIE_JAR"
 expect_status 401
 log "管理登出失效通过"
 
 CURRENT_STEP="管理重新登录"
-request POST "$BASE_URL/api/admin/session" "{\"password\":\"$ADMIN_PASSWORD\"}" \
+request POST "$BASE_URL/api?admin=session" "{\"password\":\"$ADMIN_PASSWORD\"}" \
   -c "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains '"authenticated":true'
 log "管理重新登录通过"
 
-CURRENT_STEP="管理列表"
+CURRENT_STEP="旧管理 API 不可用"
 request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+expect_status 405
+log "旧管理 API 不可用通过"
+
+CURRENT_STEP="管理列表"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_header_contains '^content-type: application/json'
 log "管理列表通过"
@@ -200,7 +205,7 @@ log "管理列表通过"
 ADMIN_PATH="$(uniq_path admin)"
 
 CURRENT_STEP="管理创建"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$ADMIN_PATH\",\"url\":\"https://example.com/admin\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$ADMIN_PATH\",\"url\":\"https://example.com/admin\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -209,13 +214,13 @@ add_created_path "$ADMIN_PATH"
 log "管理创建通过"
 
 CURRENT_STEP="管理列表包含新条目"
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$ADMIN_PATH\""
 log "管理列表校验通过"
 
 CURRENT_STEP="管理删除"
-request POST "$BASE_URL/api/admin/delete" "{\"path\":\"$ADMIN_PATH\"}" \
+request POST "$BASE_URL/api?admin=delete" "{\"path\":\"$ADMIN_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -223,13 +228,13 @@ remove_created_path "$ADMIN_PATH"
 log "管理删除通过"
 
 CURRENT_STEP="管理删除校验"
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_not_contains "\"path\":\"$ADMIN_PATH\""
 log "管理删除校验通过"
 
 CURRENT_STEP="管理超长路径校验"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -237,7 +242,7 @@ expect_json_error_message "path must be 1-99 characters"
 log "管理超长路径校验通过"
 
 CURRENT_STEP="管理非法路径校验"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$INVALID_PATH\",\"url\":\"https://example.com/invalid\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$INVALID_PATH\",\"url\":\"https://example.com/invalid\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 400
@@ -245,7 +250,7 @@ expect_json_error_message "path can only contain: a-z A-Z 0-9 - _ . / ( )"
 log "管理非法路径校验通过"
 
 CURRENT_STEP="管理斜杠路径创建"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/admin/nested\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$SLASH_PATH\",\"url\":\"https://example.com/admin/nested\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -254,13 +259,13 @@ add_created_path "$SLASH_PATH"
 log "管理斜杠路径创建通过"
 
 CURRENT_STEP="管理斜杠路径列表"
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$SLASH_PATH\""
 log "管理斜杠路径列表通过"
 
 CURRENT_STEP="管理斜杠路径删除"
-request POST "$BASE_URL/api/admin/delete" "{\"path\":\"$SLASH_PATH\"}" \
+request POST "$BASE_URL/api?admin=delete" "{\"path\":\"$SLASH_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -268,16 +273,16 @@ remove_created_path "$SLASH_PATH"
 log "管理斜杠路径删除通过"
 
 CURRENT_STEP="管理路径会规范化首尾斜杠"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$ADMIN_NORMALIZED_PATH_INPUT\",\"url\":\"https://example.com/admin-normalized\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$ADMIN_NORMALIZED_PATH_INPUT\",\"url\":\"https://example.com/admin-normalized\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$ADMIN_NORMALIZED_PATH\""
 add_created_path "$ADMIN_NORMALIZED_PATH"
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$ADMIN_NORMALIZED_PATH\""
-request POST "$BASE_URL/api/admin/delete" "{\"path\":\"//$ADMIN_NORMALIZED_PATH//\"}" \
+request POST "$BASE_URL/api?admin=delete" "{\"path\":\"//$ADMIN_NORMALIZED_PATH//\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -291,28 +296,28 @@ ADMIN_TTL_ZERO_PATH="$(uniq_path admin-ttl-zero)"
 ADMIN_TTL_LIVE_PATH="$(uniq_path admin-ttl-live)"
 
 CURRENT_STEP="管理 ttl=0 创建"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$ADMIN_TTL_ZERO_PATH\",\"url\":\"ttl zero body\",\"ttl\":0}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$ADMIN_TTL_ZERO_PATH\",\"url\":\"ttl zero body\",\"ttl\":0}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$ADMIN_TTL_ZERO_PATH\""
 expect_body_contains "\"ttl\":null"
 add_created_path "$ADMIN_TTL_ZERO_PATH"
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$ADMIN_TTL_ZERO_PATH\""
 expect_body_contains "\"ttl\":null"
 log "管理 ttl=0 通过"
 
 CURRENT_STEP="管理 ttl 正数创建"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$ADMIN_TTL_LIVE_PATH\",\"url\":\"ttl live body\",\"ttl\":30}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$ADMIN_TTL_LIVE_PATH\",\"url\":\"ttl live body\",\"ttl\":30}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$ADMIN_TTL_LIVE_PATH\""
 expect_body_contains "\"ttl\":30"
 add_created_path "$ADMIN_TTL_LIVE_PATH"
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_contains "\"path\":\"$ADMIN_TTL_LIVE_PATH\""
 expect_body_matches "\"path\":\"$ADMIN_TTL_LIVE_PATH\"[^\n]*\"ttl\":(2[0-9]|30)"
@@ -326,7 +331,7 @@ expect_status 201
 expect_body_contains "\"title\":\"Admin Topic Home\""
 expect_body_contains "\"created\":\"$CREATED_DATE_EXPECTED\""
 add_created_topic "$ADMIN_TOPIC"
-request POST "$BASE_URL/api/admin/create" "{\"topic\":\"$ADMIN_TOPIC\",\"path\":\"$ADMIN_TOPIC_CHILD\",\"title\":\"Admin Topic Title\",\"url\":\"topic body\",\"created\":\"$CREATED_DATETIME_INPUT\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"topic\":\"$ADMIN_TOPIC\",\"path\":\"$ADMIN_TOPIC_CHILD\",\"title\":\"Admin Topic Title\",\"url\":\"topic body\",\"created\":\"$CREATED_DATETIME_INPUT\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
@@ -334,14 +339,14 @@ expect_body_contains "\"path\":\"$ADMIN_TOPIC_PATH\""
 expect_body_contains "\"title\":\"Admin Topic Title\""
 expect_body_contains "\"created\":\"$CREATED_DATETIME_EXPECTED\""
 add_created_path "$ADMIN_TOPIC_PATH"
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_matches "\"path\":\"$ADMIN_TOPIC_PATH\"[^\n]*\"title\":\"Admin Topic Title\"[^\n]*\"created\":\"$CREATED_DATETIME_EXPECTED\""
 expect_body_matches "\"path\":\"$ADMIN_TOPIC\"[^\n]*\"title\":\"Admin Topic Home\"[^\n]*\"created\":\"$CREATED_DATE_EXPECTED\""
 log "管理 title 与 topic 通过"
 
 CURRENT_STEP="管理 topic 子项删除"
-request POST "$BASE_URL/api/admin/delete" "{\"path\":\"$ADMIN_TOPIC_PATH\"}" \
+request POST "$BASE_URL/api?admin=delete" "{\"path\":\"$ADMIN_TOPIC_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
@@ -622,23 +627,23 @@ expect_body_contains '<h1>hello</h1>'
 log "公开 html 展示通过"
 
 CURRENT_STEP="Markdown alias 按原文入库并公开渲染"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$MD_ALIAS_PATH\",\"url\":\"# Hello\\n\\nBody line\",\"type\":\"md2html\",\"title\":\"Markdown Alias\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$MD_ALIAS_PATH\",\"url\":\"# Hello\\n\\nBody line\",\"type\":\"md2html\",\"title\":\"Markdown Alias\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$MD_ALIAS_PATH\""
 expect_body_contains "\"type\":\"md\""
 add_created_path "$MD_ALIAS_PATH"
-request POST "$BASE_URL/api/admin/query" "{\"path\":\"$MD_ALIAS_PATH\"}" \
+request POST "$BASE_URL/api?admin=query" "{\"path\":\"$MD_ALIAS_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"type\":\"md\""
 expect_body_contains '# Hello'
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_matches "\"path\":\"$MD_ALIAS_PATH\"[^\n]*\"type\":\"md\""
-request POST "$BASE_URL/api/admin/query" "{\"path\":\"$MD_ALIAS_PATH\"}" \
+request POST "$BASE_URL/api?admin=query" "{\"path\":\"$MD_ALIAS_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json" \
   -H "x-export: true"
@@ -653,23 +658,23 @@ expect_body_contains '<h1 id="hello">Hello</h1>'
 log "Markdown alias 通过"
 
 CURRENT_STEP="QRCode 按原文入库并公开渲染"
-request POST "$BASE_URL/api/admin/create" "{\"path\":\"$QRCODE_PATH\",\"url\":\"https://example.com/qr-source\",\"type\":\"qrcode\",\"title\":\"QRCode Entry\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"path\":\"$QRCODE_PATH\",\"url\":\"https://example.com/qr-source\",\"type\":\"qrcode\",\"title\":\"QRCode Entry\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$QRCODE_PATH\""
 expect_body_contains "\"type\":\"qrcode\""
 add_created_path "$QRCODE_PATH"
-request POST "$BASE_URL/api/admin/query" "{\"path\":\"$QRCODE_PATH\"}" \
+request POST "$BASE_URL/api?admin=query" "{\"path\":\"$QRCODE_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"type\":\"qrcode\""
 expect_body_contains 'https://example...'
-request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
+request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_matches "\"path\":\"$QRCODE_PATH\"[^\n]*\"type\":\"qrcode\""
-request POST "$BASE_URL/api/admin/query" "{\"path\":\"$QRCODE_PATH\"}" \
+request POST "$BASE_URL/api?admin=query" "{\"path\":\"$QRCODE_PATH\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json" \
   -H "x-export: true"
@@ -688,14 +693,14 @@ request POST "$BASE_URL/create" "{\"path\":\"$TOPIC_RENDER_PATH\",\"type\":\"top
   -H "Content-Type: application/json"
 expect_status 201
 add_created_topic "$TOPIC_RENDER_PATH"
-request POST "$BASE_URL/api/admin/create" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_MD_CHILD\",\"url\":\"# Topic Markdown\",\"type\":\"md2html\",\"title\":\"Topic Markdown\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_MD_CHILD\",\"url\":\"# Topic Markdown\",\"type\":\"md2html\",\"title\":\"Topic Markdown\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"path\":\"$TOPIC_MD_PATH\""
 expect_body_contains "\"type\":\"md\""
 add_created_path "$TOPIC_MD_PATH"
-request POST "$BASE_URL/api/admin/create" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_QR_CHILD\",\"url\":\"https://example.com/topic-qr\",\"type\":\"qrcode\",\"title\":\"Topic QR\"}" \
+request POST "$BASE_URL/api?admin=create" "{\"topic\":\"$TOPIC_RENDER_PATH\",\"path\":\"$TOPIC_QR_CHILD\",\"url\":\"https://example.com/topic-qr\",\"type\":\"qrcode\",\"title\":\"Topic QR\"}" \
   -b "$COOKIE_JAR" \
   -H "Content-Type: application/json"
 expect_status 201

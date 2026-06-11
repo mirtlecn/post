@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApiHandler } from '../api/index.js';
-import { createAdminApiHandler } from '../api/admin.js';
+import { createAdminApiHandler } from '../lib/server/admin-api-handler.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
 test('createApiHandler rejects unauthenticated action requests', async () => {
@@ -134,4 +134,40 @@ test('createAdminApiHandler rejects legacy admin root data endpoint', async () =
   await handler(createMockRequest({ method: 'POST', url: '/api/admin' }), response);
 
   assert.equal(response.statusCode, 405);
+});
+
+test('createApiHandler routes admin session and action query endpoints', async () => {
+  const calls = [];
+  const handler = createApiHandler({
+    onAdminSession: async () => {
+      calls.push('session');
+    },
+    onAdmin: async () => {
+      calls.push('admin');
+    },
+    onPublicGet: async () => {
+      calls.push('public');
+    },
+  });
+
+  await handler(createMockRequest({ method: 'GET', url: '/api?admin=session' }), createMockResponse());
+  await handler(createMockRequest({ method: 'POST', url: '/api?admin=create' }), createMockResponse());
+  await handler(createMockRequest({ method: 'GET', url: '/query' }), createMockResponse());
+
+  assert.deepEqual(calls, ['session', 'admin', 'public']);
+});
+
+test('createApiHandler no longer treats legacy /api/admin action paths as admin api', async () => {
+  const calls = [];
+  const handler = createApiHandler({
+    onAdmin: async () => calls.push('admin'),
+    onAdminSession: async () => calls.push('session'),
+    onPublicGet: async () => calls.push('public'),
+  });
+  const response = createMockResponse();
+
+  await handler(createMockRequest({ method: 'POST', url: '/api/admin/create' }), response);
+
+  assert.equal(response.statusCode, 405);
+  assert.deepEqual(calls, []);
 });

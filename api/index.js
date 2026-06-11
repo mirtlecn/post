@@ -6,6 +6,8 @@ import { handleList } from '../lib/handlers/list.js';
 import { handleAuthenticatedLookup } from '../lib/handlers/authenticated-lookup.js';
 import { handlePublicGet } from '../lib/handlers/public-get.js';
 import { getActionFromPath, handleAction } from '../lib/handlers/action-router.js';
+import { createAdminApiHandler } from '../lib/server/admin-api-handler.js';
+import { createAdminSessionHandler } from '../lib/server/admin-session-handler.js';
 
 function unauthorized(res) {
   return errorResponse(res, { code: 'unauthorized', message: 'Unauthorized' }, 401);
@@ -22,21 +24,34 @@ function requireWriteAuthentication(req, res) {
 
 export function createApiHandler({
   authenticate = isAuthenticated,
-  getPathname = (req) => new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname,
+  getRequestUrl = (req) => new URL(req.url, `http://${req.headers.host || 'localhost'}`),
   onCreate = handleCreate,
   onReplace = handleReplace,
   onDelete = handleDelete,
   onList = handleList,
   onLookup = handleAuthenticatedLookup,
   onPublicGet = handlePublicGet,
+  onAdmin = createAdminApiHandler(),
+  onAdminSession = createAdminSessionHandler(),
 } = {}) {
   return async function handler(req, res) {
     try {
+      const requestUrl = getRequestUrl(req);
+      const adminAction = requestUrl.searchParams.get('admin');
+
+      if (adminAction === 'session') {
+        return onAdminSession(req, res);
+      }
+
+      if (adminAction !== null) {
+        return onAdmin(req, res);
+      }
+
       if (req.method === 'GET' || req.method === 'HEAD') {
         return onPublicGet(req, res);
       }
 
-      const action = getActionFromPath(getPathname(req));
+      const action = getActionFromPath(requestUrl.pathname);
       if (req.method === 'POST' && action) {
         if (!authenticate(req)) {
           return unauthorized(res);
