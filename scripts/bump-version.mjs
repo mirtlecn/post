@@ -1,8 +1,12 @@
+import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { promisify } from 'node:util';
 
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
 const BUMP_TYPES = new Set(['patch', 'minor', 'major']);
+const RELEASE_FILES = ['package.json', 'package-lock.json'];
+const execFileAsync = promisify(execFile);
 
 function parseVersion(versionText) {
   const match = VERSION_PATTERN.exec(versionText);
@@ -69,10 +73,46 @@ function replaceTopLevelVersion(fileContent, nextVersion) {
   return { nextContent, replacementCount };
 }
 
+async function runGit(args) {
+  try {
+    const { stdout } = await execFileAsync('git', args, { encoding: 'utf8' });
+    return stdout.trim();
+  } catch (error) {
+    const reason = error.stderr?.trim() || error.message;
+    throw new Error(`git ${args.join(' ')} failed: ${reason}`);
+  }
+}
+
+async function assertCleanWorkingTree() {
+  const status = await runGit(['status', '--porcelain']);
+  if (status) {
+    throw new Error('Working tree must be clean before bumping a release version');
+  }
+}
+
+async function assertTagDoesNotExist(tagName) {
+  const existingTag = await runGit(['tag', '--list', tagName]);
+  if (existingTag) {
+    throw new Error(`Git tag "${tagName}" already exists`);
+  }
+}
+
+async function commitAndTagRelease(nextVersion) {
+  const tagName = `v${nextVersion}`;
+
+  await runGit(['add', ...RELEASE_FILES]);
+  await runGit(['commit', '-m', `chore(release): bump version to ${nextVersion}`]);
+  await runGit(['tag', '-a', tagName, '-m', tagName]);
+
+  return tagName;
+}
+
 async function main() {
   const input = process.argv[2];
   const packageJsonPath = resolve('package.json');
   const packageLockPath = resolve('package-lock.json');
+
+  await assertCleanWorkingTree();
 
   const packageJsonContent = await readFile(packageJsonPath, 'utf8');
   const packageJson = JSON.parse(packageJsonContent);
@@ -80,6 +120,11 @@ async function main() {
   parseVersion(currentVersion);
 
   const nextVersion = resolveNextVersion(currentVersion, input);
+  if (nextVersion === currentVersion) {
+    throw new Error(`Version is already ${nextVersion}`);
+  }
+  await assertTagDoesNotExist(`v${nextVersion}`);
+
   packageJson.version = nextVersion;
   await writeFile(`${packageJsonPath}`, `${JSON.stringify(packageJson, null, 2)}\n`);
 
@@ -90,7 +135,11 @@ async function main() {
   }
   await writeFile(`${packageLockPath}`, nextContent);
 
+  const tagName = await commitAndTagRelease(nextVersion);
+
   process.stdout.write(`${currentVersion} -> ${nextVersion}\n`);
+  process.stdout.write(`Committed chore(release): bump version to ${nextVersion}\n`);
+  process.stdout.write(`Tagged ${tagName}\n`);
 }
 
 main().catch((error) => {

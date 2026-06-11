@@ -143,7 +143,7 @@ Notes:
 
 ## Release Process
 
-- Keep the package version in `package.json` and `package-lock.json` aligned by using:
+- Create a release commit and annotated `vX.Y.Z` tag by using:
 
 ```bash
 npm run version:bump -- patch
@@ -155,11 +155,12 @@ npm run version:bump -- patch
 npm run version:bump -- 1.4.0
 ```
 
+- The version bump script requires a clean working tree and will:
+  - update `package.json` and `package-lock.json`
+  - create a `chore(release): bump version to X.Y.Z` commit
+  - create an annotated `vX.Y.Z` git tag
+
 - For a normal release:
   - finish and test the functional change
   - commit the functional change first
-  - bump the version in a separate commit
-  - create an annotated git tag in the `vX.Y.Z` format after the version commit
-
-- Release commit messages should use Conventional Commits, for example:
-  - `chore(release): bump version to 1.4.0`
+  - run the version bump script
