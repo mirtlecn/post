@@ -28,6 +28,20 @@ test('buildStoredValue stores typed values', () => {
   );
 });
 
+test('buildStoredValue stores optional file metadata', () => {
+  assert.equal(
+    buildStoredValue({
+      type: 'file',
+      content: 'post/default/file.png',
+      metadata: {
+        contentLength: 7340032,
+        contentType: 'image/png',
+      },
+    }),
+    '{"type":"file","content":"post/default/file.png","metadata":{"contentLength":7340032,"contentType":"image/png"}}',
+  );
+});
+
 test('parseStoredValue reads stored JSON values', () => {
   assert.deepEqual(parseStoredValue('{"type":"html","content":"<h1>Hello</h1>","title":"Hello","created":"2026-03-18T16:00:00Z"}'), {
     type: 'html',
@@ -43,6 +57,19 @@ test('parseStoredValue keeps old records compatible when created is missing', ()
     content: '<h1>Hello</h1>',
     title: 'Hello',
     created: '',
+  });
+});
+
+test('parseStoredValue reads optional file metadata', () => {
+  assert.deepEqual(parseStoredValue('{"type":"file","content":"post/default/file.png","metadata":{"contentLength":7340032,"contentType":"image/png"}}'), {
+    type: 'file',
+    content: 'post/default/file.png',
+    title: '',
+    created: '',
+    metadata: {
+      contentLength: 7340032,
+      contentType: 'image/png',
+    },
   });
 });
 

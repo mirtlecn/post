@@ -255,6 +255,25 @@ export function buildFileUploadData(form, file, { preservePath = false } = {}) {
   return data;
 }
 
+export function buildDirectUploadBody(form, file, { preservePath = false, allowOverwrite = false } = {}) {
+  const submittedPath = preservePath ? buildSubmittedPath(form) : form.path.trim();
+  const body = {
+    filename: file?.name || '',
+    contentType: file?.type || '',
+    size: file?.size || 0,
+    preservePath,
+    allowOverwrite,
+  };
+  if (submittedPath) body.path = submittedPath;
+  if (form.title.trim()) body.title = form.title.trim();
+  const created = buildCreatedValue(form);
+  if (created) body.created = created;
+  if (!preservePath && form.topic) body.topic = form.topic;
+  const ttl = resolveTtlMinutes(form.ttl);
+  if (ttl !== null) body.ttl = ttl;
+  return body;
+}
+
 export function canSubmitComposerForm({ busy, file, existingFile = null, fileEditMode = false, form }) {
   if (busy) return false;
   if (isTopicCreateType(form.convert)) {

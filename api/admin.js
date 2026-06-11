@@ -8,10 +8,17 @@
 
 import { errorResponse } from '../lib/utils/response.js';
 import { isAdminRequestAuthenticated } from '../lib/utils/auth.js';
-import { createActionApiHandler } from '../lib/handlers/action-router.js';
+import { ADMIN_ACTIONS, createActionApiHandler } from '../lib/handlers/action-router.js';
+import {
+  handleCompleteUpload,
+  handlePrepareUpload,
+} from '../lib/services/create/direct-upload.js';
 
 const handleAdminAction = createActionApiHandler({
   basePath: '/api/admin',
+  actions: ADMIN_ACTIONS,
+  onPrepareUpload: handlePrepareUpload,
+  onCompleteUpload: handleCompleteUpload,
 });
 
 function withSecretAuthorization(req) {

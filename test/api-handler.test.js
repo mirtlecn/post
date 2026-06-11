@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApiHandler } from '../api/index.js';
 import { createAdminApiHandler } from '../api/admin.js';
+import { ADMIN_ACTIONS, createActionApiHandler } from '../lib/handlers/action-router.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
 test('createApiHandler rejects unauthenticated action requests', async () => {
@@ -125,6 +126,36 @@ test('createApiHandler rejects non-action POST paths without public fallback', a
   assert.deepEqual(calls, []);
 });
 
+test('createApiHandler keeps direct upload paths out of the token API', async () => {
+  const calls = [];
+  const handler = createApiHandler({
+    authenticate: () => true,
+    onCreate: async () => calls.push('create'),
+  });
+  const response = createMockResponse();
+
+  await handler(createMockRequest({ method: 'POST', url: '/upload/prepare' }), response);
+
+  assert.equal(response.statusCode, 405);
+  assert.deepEqual(calls, []);
+});
+
+test('admin action router routes direct upload actions with the admin action set', async () => {
+  const calls = [];
+  const handler = createActionApiHandler({
+    basePath: '/api/admin',
+    actions: ADMIN_ACTIONS,
+    authenticate: async () => true,
+    onPrepareUpload: async () => calls.push('prepare'),
+    onCompleteUpload: async () => calls.push('complete'),
+  });
+
+  await handler(createMockRequest({ method: 'POST', url: '/api/admin/upload/prepare' }), createMockResponse());
+  await handler(createMockRequest({ method: 'POST', url: '/api/admin/upload/complete' }), createMockResponse());
+
+  assert.deepEqual(calls, ['prepare', 'complete']);
+});
+
 test('createAdminApiHandler rejects legacy admin root data endpoint', async () => {
   const handler = createAdminApiHandler({
     authenticate: async () => true,
@@ -134,4 +165,21 @@ test('createAdminApiHandler rejects legacy admin root data endpoint', async () =
   await handler(createMockRequest({ method: 'POST', url: '/api/admin' }), response);
 
   assert.equal(response.statusCode, 405);
+});
+
+test('createAdminApiHandler routes admin direct upload actions', async () => {
+  const calls = [];
+  const apiHandler = createAdminApiHandler({
+    authenticate: async () => true,
+    apiHandler: async (req, res) => {
+      calls.push([req.method, req.url, req.headers.authorization]);
+      res.status(200).send('{}');
+    },
+  });
+  const response = createMockResponse();
+
+  await apiHandler(createMockRequest({ method: 'POST', url: '/api/admin/upload/prepare' }), response);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [['POST', '/api/admin/upload/prepare', `Bearer ${process.env.SECRET_KEY}`]]);
 });

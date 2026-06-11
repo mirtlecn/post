@@ -111,6 +111,7 @@ DOUBLE_SLASH_PATH="$(uniq_path two)/branch/leaf.txt"
 TRIPLE_SLASH_PATH="$(uniq_path three)/branch/deeper/leaf.txt"
 ADMIN_NORMALIZED_PATH="$(uniq_path admin-normalized)"
 ADMIN_NORMALIZED_PATH_INPUT="/$ADMIN_NORMALIZED_PATH/"
+ADMIN_DIRECT_UPLOAD_PATH="$(uniq_path admin-direct-upload).bin"
 API_NORMALIZED_PATH="$(uniq_path api-normalized)"
 API_NORMALIZED_PATH_INPUT="/$API_NORMALIZED_PATH/"
 CREATED_DATE_INPUT="2026-03-20"
@@ -227,6 +228,72 @@ request POST "$BASE_URL/api/admin/query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_not_contains "\"path\":\"$ADMIN_PATH\""
 log "管理删除校验通过"
+
+CURRENT_STEP="管理直传文件"
+DIRECT_UPLOAD_FILE="$TMP_DIR/admin-direct-upload.bin"
+DIRECT_UPLOAD_BYTES=$(( (${MAX_CONTENT_SIZE_KB:-500} + 16) * 1024 ))
+MAX_UPLOAD_BYTES=$(( (${MAX_FILE_SIZE_MB:-50}) * 1024 * 1024 ))
+if [ "$DIRECT_UPLOAD_BYTES" -ge "$MAX_UPLOAD_BYTES" ]; then
+  DIRECT_UPLOAD_BYTES=1024
+fi
+/bin/dd if=/dev/zero of="$DIRECT_UPLOAD_FILE" bs="$DIRECT_UPLOAD_BYTES" count=1 >/dev/null 2>&1
+DIRECT_UPLOAD_SIZE="$(/usr/bin/wc -c < "$DIRECT_UPLOAD_FILE" | /usr/bin/tr -d ' ')"
+request POST "$BASE_URL/api/admin/upload/prepare" "{\"path\":\"$ADMIN_DIRECT_UPLOAD_PATH\",\"filename\":\"admin-direct-upload.bin\",\"contentType\":\"application/octet-stream\",\"size\":$DIRECT_UPLOAD_SIZE}" \
+  -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json"
+if [ "$LAST_STATUS" = "501" ]; then
+  expect_body_contains "\"code\":\"s3_not_configured\""
+  log "未配置 S3 时管理直传 prepare 返回 501 通过"
+else
+  expect_status 200
+  DIRECT_UPLOAD_ID="$(printf '%s' "$LAST_BODY" | /usr/bin/sed -n 's/.*"uploadId":"\([^"]*\)".*/\1/p')"
+  DIRECT_UPLOAD_URL="$(printf '%s' "$LAST_BODY" | /usr/bin/sed -n 's/.*"uploadUrl":"\([^"]*\)".*/\1/p')"
+  if [ -z "$DIRECT_UPLOAD_ID" ] || [ -z "$DIRECT_UPLOAD_URL" ]; then
+    fail "直传 prepare 响应缺少 uploadId 或 uploadUrl"
+  fi
+
+  REQUEST_METHOD="PUT"
+  REQUEST_URL="$DIRECT_UPLOAD_URL"
+  : >"$BODY_FILE"
+  : >"$HEADERS_FILE"
+  LAST_STATUS="$(
+    /usr/bin/curl -sS \
+      -D "$HEADERS_FILE" \
+      -o "$BODY_FILE" \
+      -X PUT "$DIRECT_UPLOAD_URL" \
+      -H "Content-Type: application/octet-stream" \
+      --data-binary "@$DIRECT_UPLOAD_FILE" \
+      -w "%{http_code}"
+  )"
+  LAST_BODY="$(/bin/cat "$BODY_FILE" 2>/dev/null || true)"
+  LAST_HEADERS="$(/bin/cat "$HEADERS_FILE" 2>/dev/null || true)"
+  expect_status 200
+
+  request POST "$BASE_URL/api/admin/upload/complete" "{\"uploadId\":\"$DIRECT_UPLOAD_ID\"}" \
+    -b "$COOKIE_JAR" \
+    -H "Content-Type: application/json"
+  expect_status 201
+  expect_body_contains "\"path\":\"$ADMIN_DIRECT_UPLOAD_PATH\""
+  expect_body_contains "\"type\":\"file\""
+  expect_body_contains "\"content\":\"post/"
+  add_created_path "$ADMIN_DIRECT_UPLOAD_PATH"
+
+  request GET "$BASE_URL/$ADMIN_DIRECT_UPLOAD_PATH" ""
+  if [ "$DIRECT_UPLOAD_SIZE" -gt "$(( (${MAX_CONTENT_SIZE_KB:-500}) * 1024 ))" ]; then
+    expect_status 302
+    expect_header_contains "^location: http"
+    expect_header_contains "^cache-control: private, no-store"
+  else
+    expect_status 200
+  fi
+
+  request POST "$BASE_URL/api/admin/delete" "{\"path\":\"$ADMIN_DIRECT_UPLOAD_PATH\"}" \
+    -b "$COOKIE_JAR" \
+    -H "Content-Type: application/json"
+  expect_status 200
+  remove_created_path "$ADMIN_DIRECT_UPLOAD_PATH"
+  log "管理直传文件通过"
+fi
 
 CURRENT_STEP="管理超长路径校验"
 request POST "$BASE_URL/api/admin/create" "{\"path\":\"$LONG_PATH\",\"url\":\"https://example.com/too-long\"}" \

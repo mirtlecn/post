@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createRequest, updateFile, updateRequest, uploadFile } from '../lib/api.js';
+import { completeUpload, prepareUpload, createRequest, updateRequest, uploadToS3 } from '../lib/api.js';
 import {
-  buildFileUploadData,
+  buildDirectUploadBody,
   buildFileMetadataRequestBody,
   buildInitialForm,
   buildRestoredForm,
@@ -106,8 +106,11 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
   }
 
   async function submitFile({ allowOverwrite = false, preservePath = false } = {}) {
-    const data = buildFileUploadData(form, file, { preservePath });
-    const payload = await (allowOverwrite ? updateFile(data) : uploadFile(data));
+    const fallbackMessage = allowOverwrite ? 'Update failed' : 'Upload failed';
+    const body = buildDirectUploadBody(form, file, { preservePath, allowOverwrite });
+    const prepared = await prepareUpload(body, fallbackMessage);
+    await uploadToS3(prepared.uploadUrl, prepared.headers, file, fallbackMessage);
+    const payload = await completeUpload(prepared.uploadId, fallbackMessage);
     notify('success', allowOverwrite ? 'Updated' : 'Uploaded');
     return payload;
   }

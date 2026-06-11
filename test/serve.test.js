@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { Readable } from 'node:stream';
+import { S3Client } from '@aws-sdk/client-s3';
 import { respondByType, resolvePublicRender } from '../lib/utils/serve.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
@@ -74,6 +76,18 @@ function createCachedFileRedis({ path, body, contentType, contentLength }) {
       };
       return values[key] ?? null;
     },
+  };
+}
+
+function createFileRedisWithoutCache() {
+  return {
+    withTypeMapping() {
+      return this;
+    },
+    async get() {
+      return null;
+    },
+    async setEx() {},
   };
 }
 
@@ -340,5 +354,101 @@ test('respondByType adds utf-8 charset for get cached text file responses', asyn
     assert.equal(response.getHeader('content-type'), 'application/x-sh; charset=utf-8');
     assert.equal(response.getHeader('content-length'), 12);
     assert.equal(response.body.toString('utf8'), 'echo deploy\n');
+  });
+});
+
+test('respondByType redirects large file downloads to a signed S3 URL', async () => {
+  const response = createMockResponse();
+  await withConfiguredS3(async () => {
+    await respondByType(createMockRequest({ method: 'GET' }), response, {
+      type: 'file',
+      content: 'post/default/big.bin',
+      metadata: {
+        contentLength: 600 * 1024,
+        contentType: 'application/octet-stream',
+      },
+      path: 'big.bin',
+      redis: createFileRedisWithoutCache(),
+    });
+
+    assert.equal(response.statusCode, 302);
+    assert.match(response.getHeader('location'), /^http:\/\/s3\.local\/test-bucket\/post\/default\/big\.bin\?/);
+    assert.equal(response.getHeader('cache-control'), 'private, no-store');
+    assert.equal(response.body, '');
+  });
+});
+
+test('respondByType returns large file metadata for head requests without redirecting', async () => {
+  const response = createMockResponse();
+  await withConfiguredS3(async () => {
+    await respondByType(createMockRequest({ method: 'HEAD' }), response, {
+      type: 'file',
+      content: 'post/default/big.bin',
+      metadata: {
+        contentLength: 600 * 1024,
+        contentType: 'application/octet-stream',
+      },
+      path: 'big.bin',
+      redis: createFileRedisWithoutCache(),
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.getHeader('content-length'), 600 * 1024);
+    assert.equal(response.getHeader('content-type'), 'application/octet-stream');
+    assert.equal(response.getHeader('location'), undefined);
+  });
+});
+
+test('respondByType uses HeadObject metadata for legacy large file entries', async (t) => {
+  const response = createMockResponse();
+  t.mock.method(S3Client.prototype, 'send', async (command) => {
+    assert.equal(command.constructor.name, 'HeadObjectCommand');
+    return {
+      ContentLength: 600 * 1024,
+      ContentType: 'image/png',
+    };
+  });
+
+  await withConfiguredS3(async () => {
+    await respondByType(createMockRequest({ method: 'GET' }), response, {
+      type: 'file',
+      content: 'post/default/legacy.png',
+      path: 'legacy.png',
+      redis: createFileRedisWithoutCache(),
+    });
+
+    assert.equal(response.statusCode, 302);
+    assert.match(response.getHeader('location'), /post\/default\/legacy\.png/);
+    assert.equal(response.getHeader('cache-control'), 'private, no-store');
+  });
+});
+
+test('respondByType keeps small metadata files on the proxy stream path', async (t) => {
+  const response = createMockResponse();
+  t.mock.method(S3Client.prototype, 'send', async (command) => {
+    assert.equal(command.constructor.name, 'GetObjectCommand');
+    return {
+      Body: Readable.from([Buffer.from('body')]),
+      ContentLength: 4,
+      ContentType: 'application/octet-stream',
+    };
+  });
+
+  await withConfiguredS3(async () => {
+    await respondByType(createMockRequest({ method: 'GET' }), response, {
+      type: 'file',
+      content: 'post/default/small.bin',
+      metadata: {
+        contentLength: 4,
+        contentType: 'application/octet-stream',
+      },
+      path: 'small.bin',
+      redis: createFileRedisWithoutCache(),
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.getHeader('location'), undefined);
+    assert.equal(response.getHeader('content-length'), 4);
+    assert.equal(response.body, 'body');
   });
 });

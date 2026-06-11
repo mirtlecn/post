@@ -106,12 +106,20 @@ test('buildFileMetadataUpdate keeps the existing file object key and applies tit
       content: 'post/default/object-key.png',
       title: 'Old title',
       created: '2026-03-20T00:00:00Z',
+      metadata: {
+        contentLength: 1024,
+        contentType: 'image/png',
+      },
     }),
   });
 
   assert.deepEqual(update, {
     content: 'post/default/object-key.png',
     title: '',
+    metadata: {
+      contentLength: 1024,
+      contentType: 'image/png',
+    },
   });
 });
 

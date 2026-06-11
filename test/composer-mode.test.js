@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TOPIC_CREATE_TYPE,
+  buildDirectUploadBody,
   buildEditComposerSnapshot,
   buildCreatedValue,
   buildFileUploadData,
@@ -171,6 +172,50 @@ test('buildFileUploadData resolves ttl expressions for form uploads', () => {
   const data = buildFileUploadData(form, new Blob(['demo']));
 
   assert.equal(data.get('ttl'), '1440');
+});
+
+test('buildDirectUploadBody emits direct upload metadata for new files', () => {
+  const form = {
+    ...buildInitialForm('post'),
+    path: 'bo-ke',
+    title: 'Book',
+    createdDate: '2026-03-20',
+    createdTime: '08:09',
+    ttl: '60*24',
+  };
+  const file = { name: 'book.png', type: 'image/png', size: 1234 };
+
+  assert.deepEqual(buildDirectUploadBody(form, file), {
+    filename: 'book.png',
+    contentType: 'image/png',
+    size: 1234,
+    preservePath: false,
+    allowOverwrite: false,
+    path: 'bo-ke',
+    title: 'Book',
+    created: '2026-03-20 08:09:00',
+    topic: 'post',
+    ttl: 1440,
+  });
+});
+
+test('buildDirectUploadBody can preserve the full existing path for file replacement', () => {
+  const form = {
+    ...buildInitialForm('post'),
+    path: 'bo-ke',
+    title: 'Book',
+  };
+  const file = { name: 'book.png', type: 'image/png', size: 1234 };
+
+  assert.deepEqual(buildDirectUploadBody(form, file, { preservePath: true, allowOverwrite: true }), {
+    filename: 'book.png',
+    contentType: 'image/png',
+    size: 1234,
+    preservePath: true,
+    allowOverwrite: true,
+    path: 'post/bo-ke',
+    title: 'Book',
+  });
 });
 
 test('buildTopicModeForm clears all fields and forces topic type', () => {
