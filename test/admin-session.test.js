@@ -19,8 +19,8 @@ test('admin session handler creates a redis-backed session cookie on login', asy
   assert.equal(response.statusCode, 200);
   assert.match(response.body, /"authenticated":true/);
   assert.deepEqual(response.getHeader('set-cookie'), [
-    'post_admin_session=session-123; Max-Age=604800; Path=/api; HttpOnly; SameSite=Lax',
     'post_admin_session=; Max-Age=0; Path=/api/admin; HttpOnly; SameSite=Lax',
+    'post_admin_session=session-123; Max-Age=604800; Path=/api; HttpOnly; SameSite=Lax',
   ]);
   calls.push('done');
   assert.deepEqual(calls, ['done']);
@@ -69,7 +69,7 @@ test('admin session handler removes the current session on logout', async () => 
   assert.equal(removedRequest, request);
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.getHeader('set-cookie'), [
-    'post_admin_session=; Max-Age=0; Path=/api; HttpOnly; SameSite=Lax',
     'post_admin_session=; Max-Age=0; Path=/api/admin; HttpOnly; SameSite=Lax',
+    'post_admin_session=; Max-Age=0; Path=/api; HttpOnly; SameSite=Lax',
   ]);
 });

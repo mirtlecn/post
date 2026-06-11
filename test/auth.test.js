@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   ADMIN_SESSION_COOKIE,
   ADMIN_SESSION_MAX_AGE,
+  buildAdminLogoutCookies,
   buildAdminLogoutCookie,
+  buildAdminSessionCookies,
   buildAdminSessionCookie,
   createAdminSession,
   deleteAdminSession,
@@ -87,6 +89,17 @@ test('deleteAdminSession removes the current redis session and logout cookie exp
   assert.equal(await redis.get(`admin:session:${sessionId}`), null);
   assert.match(buildAdminLogoutCookie(), /Max-Age=0/);
   assert.match(buildAdminLogoutCookie(), /Path=\/api(?:;|$)/);
+});
+
+test('admin cookie batches keep the active /api cookie last for EdgeOne', () => {
+  const loginCookies = buildAdminSessionCookies('session-123');
+  assert.match(loginCookies.at(-1), /^post_admin_session=session-123;/);
+  assert.match(loginCookies.at(-1), /Path=\/api(?:;|$)/);
+
+  const logoutCookies = buildAdminLogoutCookies();
+  assert.match(logoutCookies.at(-1), /^post_admin_session=;/);
+  assert.match(logoutCookies.at(-1), /Max-Age=0/);
+  assert.match(logoutCookies.at(-1), /Path=\/api(?:;|$)/);
 });
 
 test('isAdminRequestAuthenticated keeps bearer admin key compatibility', async () => {
