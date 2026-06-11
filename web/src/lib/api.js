@@ -4,11 +4,23 @@ export async function readJson(response) {
   const text = await response.text();
   if (!text) return null;
   try { return JSON.parse(text); }
-  catch { return { error: text.trim() }; }
+  catch { return null; }
+}
+
+function getDisplayableErrorMessage(payload) {
+  const rawMessage = payload?.error || payload?.message;
+  if (typeof rawMessage !== 'string') return '';
+
+  const message = rawMessage.trim();
+  if (!message || message.length > 240) return '';
+  if (/^</.test(message) || /<!doctype|<html|<body/i.test(message)) return '';
+  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(message)) return '';
+
+  return message;
 }
 
 function buildRequestError(response, payload, fallbackMessage) {
-  const error = new Error(payload?.error || fallbackMessage);
+  const error = new Error(getDisplayableErrorMessage(payload) || fallbackMessage);
   error.status = response.status;
   error.payload = payload;
   return error;
