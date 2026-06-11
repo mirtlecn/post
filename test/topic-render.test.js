@@ -100,6 +100,19 @@ test('buildTopicIndexMarkdown keeps md unmarked and qrcode as text-like mark', (
   assert.match(markdown, /\[QRCode Entry]\(<\/anime\/entry-qr>\) ☰ · 2026-12-18/);
 });
 
+test('buildTopicIndexMarkdown marks child topics with section sign', () => {
+  const markdown = buildTopicIndexMarkdown('topic1', 'Topic1', [
+    {
+      path: 'topic2',
+      type: 'topic',
+      title: 'Topic2',
+      updatedAt: Date.UTC(2026, 5, 11, 10, 0, 0) / 1000,
+    },
+  ]);
+
+  assert.match(markdown, /\[Topic2]\(<\/topic1\/topic2>\) § · 2026-06-11/);
+});
+
 test('buildTopicIndexMarkdown wraps hrefs so parentheses in paths stay unambiguous', () => {
   const markdown = buildTopicIndexMarkdown('anime(list)', 'anime(list)', [
     {

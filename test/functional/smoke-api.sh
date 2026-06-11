@@ -55,6 +55,11 @@ RENDER_TEXT_ITEM_PATH="$RENDER_TOPIC_PATH/castle-notes"
 RENDER_AUTO_ITEM_GREP='\"surl\":\"http://localhost:[0-9]+/render-topic-[^\"]+/[a-z0-9]{5}\"'
 GROUPED_TOPIC_PATH="grouped-topic-$(date +%s)-$$"
 GROUPED_TOPIC_TITLE="Grouped Topic Archive"
+NESTED_TOPIC_PARENT_PATH="nested-topic-$(date +%s)-$$"
+NESTED_TOPIC_CHILD_PATH="$NESTED_TOPIC_PARENT_PATH/topic2"
+NESTED_TOPIC_PARENT_ITEM_PATH="$NESTED_TOPIC_PARENT_PATH/parent-post"
+NESTED_TOPIC_CHILD_ITEM_PATH="$NESTED_TOPIC_CHILD_PATH/post"
+NESTED_TOPIC_PARENT_ITEMS_KEY="topic:$NESTED_TOPIC_PARENT_PATH:items"
 
 READ_TEXT_PATH="read-text-$(date +%s)-$$"
 READ_URL_PATH="read-url-$(date +%s)-$$"
@@ -102,6 +107,8 @@ cleanup() {
     "$RENDER_URL_ITEM_PATH" \
     "$RENDER_TEXT_ITEM_PATH" \
     "$GROUPED_TOPIC_PATH/*" \
+    "$NESTED_TOPIC_PARENT_ITEM_PATH" \
+    "$NESTED_TOPIC_CHILD_ITEM_PATH" \
     "$READ_TEXT_PATH" \
     "$READ_URL_PATH" \
     "$READ_HTML_PATH" \
@@ -147,6 +154,8 @@ cleanup() {
     "$STORAGE_TOPIC_PATH" \
     "$RENDER_TOPIC_PATH" \
     "$GROUPED_TOPIC_PATH" \
+    "$NESTED_TOPIC_CHILD_PATH" \
+    "$NESTED_TOPIC_PARENT_PATH" \
     "$READ_TOPIC_PATH" \
     "$WILDCARD_TOPIC_ONE_PATH" \
     "$WILDCARD_TOPIC_TWO_PATH" \
@@ -736,6 +745,48 @@ if [ -n "$SMOKE_FOOTER_TEXT" ]; then
   expect_redis_not_contains "$RENDER_TOPIC_REDIS_VALUE" "$SMOKE_FOOTER_TEXT"
 fi
 log "render topic 首页渲染通过"
+
+CURRENT_STEP="nested topic 归属与父 topic 子入口"
+request POST "$BASE_URL/create" "{\"path\":\"$NESTED_TOPIC_PARENT_PATH\",\"type\":\"topic\",\"title\":\"Nested Parent\",\"created\":\"2026-06-10\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"path\":\"$NESTED_TOPIC_CHILD_PATH\",\"type\":\"topic\",\"title\":\"Nested Child\",\"created\":\"2026-06-11\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"path\":\"$NESTED_TOPIC_PARENT_ITEM_PATH\",\"url\":\"# Parent Post\",\"type\":\"md2html\",\"title\":\"Parent Post\",\"created\":\"2026-06-10\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"path\":\"$NESTED_TOPIC_CHILD_ITEM_PATH\",\"url\":\"child post\",\"type\":\"text\",\"title\":\"Child Post\",\"created\":\"2026-06-11\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 201
+request POST "$BASE_URL/create" "{\"topic\":\"$NESTED_TOPIC_PARENT_PATH\",\"path\":\"$NESTED_TOPIC_CHILD_ITEM_PATH\",\"url\":\"bad child bypass\",\"type\":\"text\"}" \
+  -H "Authorization: Bearer $SECRET_KEY" \
+  -H "Content-Type: application/json"
+expect_status 400
+expect_body_contains "\"error\":\"\`topic\` and \`path\` must match\""
+request GET "$BASE_URL/$NESTED_TOPIC_PARENT_PATH"
+expect_status 200
+expect_body_contains "Nested Child</a> § · 2026-06-11"
+expect_body_contains "href=\"/$NESTED_TOPIC_CHILD_PATH\""
+expect_body_contains "Parent Post</a> · 2026-06-10"
+expect_body_not_contains "Child Post"
+expect_body_not_contains "href=\"/$NESTED_TOPIC_CHILD_ITEM_PATH\""
+request GET "$BASE_URL/$NESTED_TOPIC_CHILD_PATH"
+expect_status 200
+expect_body_contains "Child Post</a> ☰ · 2026-06-11"
+expect_body_contains "href=\"/$NESTED_TOPIC_CHILD_ITEM_PATH\""
+NESTED_TOPIC_PARENT_MEMBERS="$(redis-cli -n "$REDIS_DB" ZRANGE "$NESTED_TOPIC_PARENT_ITEMS_KEY" 0 -1)"
+NESTED_TOPIC_PARENT_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$NESTED_TOPIC_PARENT_PATH")"
+expect_redis_contains "$NESTED_TOPIC_PARENT_MEMBERS" "topic2"
+expect_redis_contains "$NESTED_TOPIC_PARENT_MEMBERS" "parent-post"
+expect_redis_not_contains "$NESTED_TOPIC_PARENT_MEMBERS" "topic2/post"
+expect_redis_contains "$NESTED_TOPIC_PARENT_REDIS_VALUE" "[Nested Child](</$NESTED_TOPIC_CHILD_PATH>) §"
+expect_redis_not_contains "$NESTED_TOPIC_PARENT_REDIS_VALUE" "$NESTED_TOPIC_CHILD_ITEM_PATH"
+log "nested topic 归属与父 topic 子入口通过"
 
 CURRENT_STEP="跨年长 topic 首页按年份分组"
 request POST "$BASE_URL/create" "{\"path\":\"$GROUPED_TOPIC_PATH\",\"type\":\"topic\",\"title\":\"$GROUPED_TOPIC_TITLE\"}" \

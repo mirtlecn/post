@@ -220,6 +220,72 @@ test('refreshTopic re-adopts existing descendants before rebuilding', async () =
   assert.doesNotMatch(topicHome.content, /<!doctype html|<html>|<article/);
 });
 
+test('createTopic indexes direct child topics in the parent topic', async () => {
+  const redis = new FakeRedis();
+  await createTopic(redis, 'topic1', { title: 'Topic1', titleProvided: true });
+
+  await createTopic(redis, 'topic1/topic2', {
+    title: 'Topic2',
+    titleProvided: true,
+    created: '2026-06-11T10:00:00Z',
+    createdProvided: true,
+  });
+
+  assert.equal(await countTopicItems(redis, 'topic1'), 1);
+  const members = redis.sortedSets.get(getTopicItemsKey('topic1')).map((entry) => entry.value).sort();
+  assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER, 'topic2']);
+  const parentTopic = parseStoredValue(await redis.get('surl:topic1'));
+  assert.match(parentTopic.content, /\[Topic2]\(<\/topic1\/topic2>\) § · 2026-06-11/);
+});
+
+test('refreshTopic updates direct child topic entry in the parent topic', async () => {
+  const redis = new FakeRedis();
+  await createTopic(redis, 'topic1');
+  await createTopic(redis, 'topic1/topic2', { title: 'Topic2', titleProvided: true });
+
+  await refreshTopic(redis, 'topic1/topic2', {
+    title: 'Topic Two',
+    titleProvided: true,
+    created: '2026-06-11T10:00:00Z',
+    createdProvided: true,
+  });
+
+  const parentTopic = parseStoredValue(await redis.get('surl:topic1'));
+  assert.match(parentTopic.content, /\[Topic Two]\(<\/topic1\/topic2>\) § · 2026-06-11/);
+  assert.doesNotMatch(parentTopic.content, /\[Topic2]/);
+});
+
+test('refreshTopic adopts direct child topics but skips their descendants', async () => {
+  const redis = new FakeRedis();
+  await createTopic(redis, 'topic1');
+  await redis.set(
+    'surl:topic1/topic2',
+    buildStoredValue({
+      type: 'topic',
+      content: '<html></html>',
+      title: 'Topic2',
+      created: '2026-06-11T10:00:00Z',
+    }),
+  );
+  await redis.set(
+    'surl:topic1/topic2/post',
+    buildStoredValue({ type: 'text', content: 'post', title: 'Post', created: '2026-06-11T11:00:00Z' }),
+  );
+  await redis.set(
+    'surl:topic1/branch/post',
+    buildStoredValue({ type: 'text', content: 'orphan', title: 'Branch Post', created: '2026-06-11T09:00:00Z' }),
+  );
+
+  await refreshTopic(redis, 'topic1');
+
+  const members = redis.sortedSets.get(getTopicItemsKey('topic1')).map((entry) => entry.value).sort();
+  assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER, 'branch/post', 'topic2']);
+  const parentTopic = parseStoredValue(await redis.get('surl:topic1'));
+  assert.match(parentTopic.content, /\[Topic2]\(<\/topic1\/topic2>\) § · 2026-06-11/);
+  assert.match(parentTopic.content, /\[Branch Post]\(<\/topic1\/branch\/post>\) ☰ · 2026-06-11/);
+  assert.doesNotMatch(parentTopic.content, /topic2\/post/);
+});
+
 test('resolveTopicPath prefers the longest topic prefix', async () => {
   const redis = new FakeRedis();
   await redis.set('surl:blog', buildStoredValue({ type: 'topic', content: '<html></html>', title: 'blog' }));
@@ -237,6 +303,21 @@ test('resolveTopicPath prefers the longest topic prefix', async () => {
     fullPath: 'blog/2026/post-1',
     existingTopic: true,
   });
+});
+
+test('resolveTopicPath rejects explicit parent topic when path belongs to a child topic', async () => {
+  const redis = new FakeRedis();
+  await redis.set('surl:topic1', buildStoredValue({ type: 'topic', content: '<html></html>', title: 'Topic1' }));
+  await redis.set('surl:topic1/topic2', buildStoredValue({ type: 'topic', content: '<html></html>', title: 'Topic2' }));
+
+  await assert.rejects(
+    resolveTopicPath(redis, { topicName: 'topic1', path: 'topic1/topic2/post' }),
+    /`topic` and `path` must match/,
+  );
+  await assert.rejects(
+    resolveTopicPath(redis, { topicName: 'topic1', path: 'topic2' }),
+    /`topic` and `path` must match/,
+  );
 });
 
 test('resolveTopicPath ignores non-topic prefixes while checking candidates in batch', async () => {
@@ -404,6 +485,30 @@ test('rebuildTopicIndex removes stale members', async () => {
   assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER, 'alive']);
 });
 
+test('rebuildTopicIndex removes nested child topic descendants from parent index', async () => {
+  const redis = new FakeRedis();
+  await createTopic(redis, 'topic1');
+  await createTopic(redis, 'topic1/topic2', {
+    title: 'Topic2',
+    titleProvided: true,
+    created: '2026-06-11T10:00:00Z',
+    createdProvided: true,
+  });
+  await redis.set(
+    'surl:topic1/topic2/post',
+    buildStoredValue({ type: 'text', content: 'post', title: 'Post', created: '2026-06-11T11:00:00Z' }),
+  );
+  await redis.zAdd(getTopicItemsKey('topic1'), { score: 200, value: 'topic2/post' });
+
+  await rebuildTopicIndex(redis, 'topic1');
+
+  const members = redis.sortedSets.get(getTopicItemsKey('topic1')).map((entry) => entry.value).sort();
+  assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER, 'topic2']);
+  const parentTopic = parseStoredValue(await redis.get('surl:topic1'));
+  assert.match(parentTopic.content, /\[Topic2]\(<\/topic1\/topic2>\) § · 2026-06-11/);
+  assert.doesNotMatch(parentTopic.content, /topic2\/post/);
+});
+
 test('rebuildTopicIndex sorts by created before zset score and falls back for invalid values', async () => {
   const redis = new FakeRedis();
   await createTopic(redis, 'anime');
@@ -439,7 +544,7 @@ test('rebuildTopicIndex sorts by created before zset score and falls back for in
   assert.ok(olderIndex < fallbackIndex);
 });
 
-test('adoptTopicItems indexes existing non-topic entries under the topic path', async () => {
+test('adoptTopicItems indexes existing entries and direct child topics under the topic path', async () => {
   const redis = new FakeRedis();
   await redis.set('surl:anime/alpha', buildStoredValue({ type: 'text', content: 'a', title: 'Alpha' }));
   await redis.set('surl:anime/beta', buildStoredValue({ type: 'html', content: '<p>b</p>', title: 'Beta' }));
@@ -448,7 +553,7 @@ test('adoptTopicItems indexes existing non-topic entries under the topic path', 
   await createTopic(redis, 'anime');
 
   const members = redis.sortedSets.get(getTopicItemsKey('anime')).map((entry) => entry.value).sort();
-  assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER, 'alpha', 'beta']);
+  assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER, 'alpha', 'beta', 'gamma']);
 });
 
 test('deleteTopicItem removes content and updates the topic index', async () => {
@@ -505,6 +610,21 @@ test('deleteTopicItem does not re-adopt orphaned descendants before rebuilding',
   assert.equal(await countTopicItems(redis, 'anime'), 0);
   const topicHome = parseStoredValue(await redis.get('surl:anime'));
   assert.doesNotMatch(topicHome.content, /\[Branch Entry]\(<\/anime\/branch\/entry>\)/);
+});
+
+test('deleteTopic removes direct child topic entry from the parent topic', async () => {
+  const redis = new FakeRedis();
+  await createTopic(redis, 'topic1');
+  await createTopic(redis, 'topic1/topic2', { title: 'Topic2', titleProvided: true });
+
+  const deletedTopic = await deleteTopic(redis, 'topic1/topic2');
+
+  assert.equal(deletedTopic.type, 'topic');
+  assert.equal(await redis.get('surl:topic1/topic2'), null);
+  const members = redis.sortedSets.get(getTopicItemsKey('topic1')).map((entry) => entry.value).sort();
+  assert.deepEqual(members, [TOPIC_PLACEHOLDER_MEMBER]);
+  const parentTopic = parseStoredValue(await redis.get('surl:topic1'));
+  assert.doesNotMatch(parentTopic.content, /topic2/);
 });
 
 test('deleteTopicItem rolls back when zrem fails', async () => {
