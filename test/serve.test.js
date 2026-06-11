@@ -60,17 +60,19 @@ async function withFooterEnv(footerHtml, callback) {
 }
 
 function createCachedFileRedis({ path, body, contentType, contentLength }) {
+  const metaBytes = Buffer.from(JSON.stringify({ ct: contentType, cl: contentLength }), 'utf8');
+  const header = Buffer.alloc(4);
+  header.writeUInt32BE(metaBytes.length, 0);
+  const payload = Buffer.concat([header, metaBytes, Buffer.from(body)]);
   return {
-    async mGet(keys) {
+    withTypeMapping() {
+      return this;
+    },
+    async get(key) {
       const values = {
-        [`cache:file:${path}`]: Buffer.from(body).toString('base64'),
-        [`cache:filemeta:${path}`]: JSON.stringify({
-          contentType,
-          contentLength,
-          encoding: 'base64',
-        }),
+        [`cache:file:${path}`]: payload,
       };
-      return keys.map((key) => values[key] ?? null);
+      return values[key] ?? null;
     },
   };
 }

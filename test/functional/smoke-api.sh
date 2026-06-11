@@ -298,7 +298,7 @@ else
   FILE_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:file:$UPLOAD_FILE_PATH")"
   FILE_META_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:filemeta:$UPLOAD_FILE_PATH")"
   expect_equals "$FILE_CACHE_EXISTS" "1"
-  expect_equals "$FILE_META_CACHE_EXISTS" "1"
+  expect_equals "$FILE_META_CACHE_EXISTS" "0"
   request POST "$BASE_URL/update" "{\"path\":\"$UPLOAD_FILE_PATH\",\"type\":\"file\",\"title\":\"File Metadata Updated\",\"ttl\":0}" \
     -H "Authorization: Bearer $SECRET_KEY" \
     -H "Content-Type: application/json"
@@ -312,9 +312,7 @@ else
     -H "Content-Type: application/json"
   expect_status 200
   FILE_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:file:$UPLOAD_FILE_PATH")"
-  FILE_META_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:filemeta:$UPLOAD_FILE_PATH")"
   expect_equals "$FILE_CACHE_EXISTS" "0"
-  expect_equals "$FILE_META_CACHE_EXISTS" "0"
   log "文件上传、公开读取与缓存清理通过"
 fi
 
