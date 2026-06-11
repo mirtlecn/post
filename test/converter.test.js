@@ -71,6 +71,13 @@ test('convertMarkdownToHtml uses embedded base asset', () => {
   assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/gh\/mirtlecn\/public\/ravel-gfm/);
 });
 
+test('convertMarkdownToHtml advertises raw markdown alternate output', () => {
+  const html = convertMarkdownToHtml('# Hello');
+
+  assert.match(html, /<link rel="alternate" type="text\/plain" href="\?raw">/);
+  assert.match(html, /<body>\n<!-- hint: append \?raw to view the raw file -->\n<article class="markdown-body">/);
+});
+
 test('convertMarkdownToHtml injects embedded highlight assets for code blocks', () => {
   const html = convertMarkdownToHtml('```js\nconsole.log("hi")\n```');
 
