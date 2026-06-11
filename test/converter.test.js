@@ -66,7 +66,8 @@ test('convertMarkdownToHtml keeps empty title tag when pageTitle is missing', ()
 test('convertMarkdownToHtml uses embedded base asset', () => {
   const html = convertMarkdownToHtml('# Hello');
 
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('base_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, new RegExp(getEmbeddedAssetUrl('ravel_gfm_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, /\/asset\/ravel_gfm_css/);
   assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/gh\/mirtlecn\/public\/ravel-gfm/);
 });
 
@@ -80,8 +81,10 @@ test('convertMarkdownToHtml injects embedded highlight assets for code blocks', 
 test('convertMarkdownToHtml injects embedded toc assets when enough headings exist', () => {
   const html = convertMarkdownToHtml('# One\n\n## Two');
 
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm_addon_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm_addon_js').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm_addons_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm_addons_js').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, /\/asset\/gfm_addons_css/);
+  assert.match(html, /\/asset\/gfm_addons_js/);
 });
 
 test('convertMarkdownToHtml omits footer when FOOTER is unset or blank', () => {
@@ -117,7 +120,7 @@ test('convertMarkdownToHtml injects configured footer html', () => {
   withFooterEnv(encodedFooter, () => {
     const html = convertMarkdownToHtml('# One\n\n## Two');
     const articleEndIndex = html.indexOf('</article>');
-    const tocScriptIndex = html.indexOf(getEmbeddedAssetUrl('gfm_addon_js'));
+    const tocScriptIndex = html.indexOf(getEmbeddedAssetUrl('gfm_addons_js'));
     const footerIndex = html.indexOf('<footer class="markdown-body post-footer">');
 
     assert.notEqual(footerIndex, -1);

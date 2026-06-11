@@ -5,7 +5,6 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "assets:update": "node scripts/update-embedded-assets.mjs",
     "build": "vite build",
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "node server.js",
@@ -25,6 +24,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.1003.0",
     "formidable": "^3.5.4",
+    "gfm-addons": "^0.1.1",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.17.0",
     "marked": "^18.0.5",

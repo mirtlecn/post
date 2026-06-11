@@ -1,15 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { assets as addonAssets } from 'gfm-addons';
+import { embeddedAssets as addonEmbeddedAssets } from 'gfm-addons/embedded';
 import { handlePublicGet } from '../lib/handlers/public-get.js';
 import { handleCreate } from '../lib/handlers/create.js';
 import { handleDelete } from '../lib/handlers/remove.js';
 import { handleEmbeddedAssetRequest, isReservedAssetPath } from '../lib/assets/http.js';
-import { resolveEmbeddedAssetPaths } from '../lib/assets/index.js';
-import { embeddedAssets } from '../lib/assets/embedded-data.js';
+import { getEmbeddedAssetUrl, lookupEmbeddedAsset } from '../lib/assets/index.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
 function createJsonRequest(method, body) {
@@ -32,7 +30,7 @@ test('handlePublicGet rejects direct embedded asset access', async () => {
   await handlePublicGet(
     createMockRequest({
       method: 'GET',
-      url: '/asset/md-base-7f7c1c5a.css',
+      url: '/asset/ravel_gfm_css',
       headers: { host: 'example.com' },
     }),
     response,
@@ -48,7 +46,7 @@ test('handlePublicGet serves embedded asset for same-origin referer', async () =
   await handlePublicGet(
     createMockRequest({
       method: 'GET',
-      url: '/asset/md-base-7f7c1c5a.css',
+      url: '/asset/ravel_gfm_css',
       headers: { host: 'example.com', referer: 'http://example.com/note' },
     }),
     response,
@@ -66,7 +64,7 @@ test('handlePublicGet responds to head requests without a body for embedded asse
   await handlePublicGet(
     createMockRequest({
       method: 'HEAD',
-      url: '/asset/md-base-7f7c1c5a.css',
+      url: '/asset/ravel_gfm_css',
       headers: { host: 'example.com', referer: 'http://example.com/note' },
     }),
     response,
@@ -81,7 +79,7 @@ test('handleCreate rejects reserved embedded asset path', async () => {
   const response = createMockResponse();
 
   await handleCreate(
-    createJsonRequest('POST', { url: 'hello', path: 'asset/md-base-7f7c1c5a.css', type: 'text' }),
+    createJsonRequest('POST', { url: 'hello', path: 'asset/ravel_gfm_css', type: 'text' }),
     response,
   );
 
@@ -93,7 +91,7 @@ test('handleDelete rejects reserved embedded asset path', async () => {
   const response = createMockResponse();
 
   await handleDelete(
-    createJsonRequest('DELETE', { path: 'asset/md-base-7f7c1c5a.css', type: 'text' }),
+    createJsonRequest('DELETE', { path: 'asset/ravel_gfm_css', type: 'text' }),
     response,
   );
 
@@ -102,59 +100,47 @@ test('handleDelete rejects reserved embedded asset path', async () => {
 });
 
 test('reserved embedded asset checks only block exact manifest asset routes', async () => {
-  assert.equal(isReservedAssetPath('asset/md-base-7f7c1c5a.css'), true);
-  assert.equal(isReservedAssetPath('asset/md-base-7f7c1c5a.css/extra'), false);
-  assert.equal(isReservedAssetPath('asert/md-base-7f7c1c5a.css'), false);
+  assert.equal(isReservedAssetPath('asset/ravel_gfm_css'), true);
+  assert.equal(isReservedAssetPath('asset/ravel_gfm_css/extra'), false);
+  assert.equal(isReservedAssetPath('asert/ravel_gfm_css'), false);
 
   const response = createMockResponse();
   const handled = handleEmbeddedAssetRequest(
     createMockRequest({
       method: 'GET',
-      url: '/asert/md-base-7f7c1c5a.css',
+      url: '/asert/ravel_gfm_css',
       headers: { host: 'example.com' },
     }),
     response,
-    new URL('http://example.com/asert/md-base-7f7c1c5a.css'),
+    new URL('http://example.com/asert/ravel_gfm_css'),
   );
 
   assert.equal(handled, false);
   assert.equal(response.ended, false);
 });
 
-test('embedded asset path resolver supports EdgeOne flattened module output', async () => {
-  const rootDirectory = await mkdtemp(join(tmpdir(), 'post-edgeone-assets-'));
-  const assetDirectory = join(rootDirectory, 'lib', 'assets');
-  const filesDirectory = join(assetDirectory, 'files');
-  await mkdir(filesDirectory, { recursive: true });
-  await writeFile(join(assetDirectory, 'manifest.json'), '[]');
+test('gfm-addons package assets are registered as stable internal routes', () => {
+  assert.equal(addonAssets.length, 8);
+  assert.deepEqual(
+    addonEmbeddedAssets.map(({ contentBase64, ...asset }) => asset),
+    addonAssets,
+  );
 
-  const resolved = resolveEmbeddedAssetPaths({
-    moduleDirectory: rootDirectory,
-    cwd: rootDirectory,
-  });
+  for (const asset of addonAssets) {
+    const routePath = `/asset/${asset.key}`;
+    assert.equal(getEmbeddedAssetUrl(asset.key), routePath);
+    assert.equal(isReservedAssetPath(routePath.slice(1)), true);
 
-  assert.equal(resolved.manifestPath, join(assetDirectory, 'manifest.json'));
-  assert.equal(resolved.filesDirectory, filesDirectory);
-});
+    const registered = lookupEmbeddedAsset(routePath);
+    assert.ok(registered, `missing registered asset for ${asset.key}`);
+    assert.equal(registered.content_type, asset.contentType);
 
-test('generated embedded asset data matches manifest files', async () => {
-  const assetsRootUrl = new URL('../lib/assets/', import.meta.url);
-  const manifest = JSON.parse(await readFile(new URL('manifest.json', assetsRootUrl), 'utf8'));
-  assert.equal(embeddedAssets.length, manifest.length);
-
-  for (const asset of embeddedAssets) {
-    const manifestEntry = manifest.find((entry) => entry.key === asset.key);
-    assert.ok(manifestEntry, `missing manifest entry for ${asset.key}`);
-    assert.equal(asset.route_path, manifestEntry.route_path);
-    assert.equal(asset.file_name, manifestEntry.file_name);
-    assert.equal(asset.content_type, manifestEntry.content_type);
-    assert.equal(asset.source_link, manifestEntry.source_link);
-
-    const fileContent = await readFile(new URL(`files/${asset.file_name}`, assetsRootUrl));
+    const embeddedAsset = addonEmbeddedAssets.find((item) => item.key === asset.key);
+    assert.ok(embeddedAsset, `missing embedded asset for ${asset.key}`);
     assert.equal(
-      Buffer.compare(Buffer.from(asset.content_base64, 'base64'), fileContent),
+      Buffer.compare(registered.content, Buffer.from(embeddedAsset.contentBase64, 'base64')),
       0,
-      `${asset.file_name} embedded content differs from source file`,
+      `${asset.key} registered content should match gfm-addons embedded content`,
     );
   }
 });

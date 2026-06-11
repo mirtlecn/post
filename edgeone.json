@@ -12,9 +12,6 @@
   ],
   "cloudFunctions": {
     "nodejs": {
-      "includeFiles": [
-        "lib/assets/**"
-      ],
       "maxDuration": 60
     }
   }
