@@ -45,6 +45,8 @@ curl -H "Authorization: Bearer $POST_TOKEN" \
 
 `GET /query`, `GET /create`, `GET /update`, and `GET /delete` remain normal public content paths.
 
+Append `?raw` to a public content URL to read the stored content field without redirecting or rendering it.
+
 For details, see [API documentation](https://github.com/mirtlecn/post-go/blob/master/API.md)
 
 ## CLI client

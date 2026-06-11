@@ -1145,6 +1145,27 @@ expect_status 302
 expect_header_contains "^location: https://example.com/redirect"
 log "公开读取 read contract 资源通过"
 
+CURRENT_STEP="公开 raw 读取 read contract 资源"
+request GET "$BASE_URL/$READ_URL_PATH?raw=0"
+expect_status 200
+expect_header_contains "^content-type: text/plain; charset=utf-8"
+expect_header_not_contains "^location:"
+expect_equals "$LAST_BODY" "https://example.com/redirect"
+request GET "$BASE_URL/$READ_HTML_PATH?raw"
+expect_status 200
+expect_header_contains "^content-type: text/plain; charset=utf-8"
+expect_equals "$LAST_BODY" "<h1>Hello Html</h1>"
+request GET "$BASE_URL/$READ_TOPIC_ITEM_PATH?raw=false"
+expect_status 200
+expect_header_contains "^content-type: text/plain; charset=utf-8"
+expect_body_contains "# Topic Entry"
+expect_body_not_contains "<h1"
+request GET "$BASE_URL/$READ_TOPIC_PATH?raw"
+expect_status 200
+expect_header_contains "^content-type: text/html; charset=utf-8"
+expect_body_contains "Topic Entry"
+log "公开 raw 读取 read contract 资源通过"
+
 CURRENT_STEP="POST /query type/convert 冲突"
 request POST "$BASE_URL/query" "{\"path\":\"$READ_TEXT_PATH\",\"type\":\"topic\",\"convert\":\"text\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \

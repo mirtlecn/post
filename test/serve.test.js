@@ -137,6 +137,148 @@ test('resolvePublicRender renders qrcode content on demand', async () => {
   assert.match(renderResult.renderedContent, /Scan this QR code/);
 });
 
+test('respondByType returns raw url content without redirecting', async () => {
+  const response = createMockResponse();
+
+  await respondByType(createMockRequest({ method: 'GET' }), response, {
+    type: 'url',
+    content: 'https://example.com/raw',
+    path: 'ref',
+    redis: null,
+    raw: true,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body, 'https://example.com/raw');
+  assert.equal(response.getHeader('location'), undefined);
+  assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
+  assert.equal(response.getHeader('content-length'), Buffer.byteLength('https://example.com/raw'));
+});
+
+test('respondByType returns raw markdown content without rendering html', async () => {
+  const response = createMockResponse();
+
+  await respondByType(createMockRequest({ method: 'GET' }), response, {
+    type: 'md',
+    content: '# Hello',
+    title: 'Greeting',
+    path: 'note',
+    redis: createTopicRedis(),
+    raw: true,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body, '# Hello');
+  assert.doesNotMatch(response.body, /<h1/);
+  assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
+});
+
+test('respondByType returns raw legacy md2html content without rendering html', async () => {
+  const response = createMockResponse();
+
+  await respondByType(createMockRequest({ method: 'GET' }), response, {
+    type: 'md2html',
+    content: '# Legacy',
+    title: 'Legacy',
+    path: 'legacy',
+    redis: createTopicRedis(),
+    raw: true,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body, '# Legacy');
+  assert.doesNotMatch(response.body, /<h1/);
+  assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
+});
+
+test('respondByType returns raw html content as plain text', async () => {
+  const response = createMockResponse();
+
+  await respondByType(createMockRequest({ method: 'GET' }), response, {
+    type: 'html',
+    content: '<p>Hello</p>',
+    path: 'note',
+    redis: null,
+    raw: true,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body, '<p>Hello</p>');
+  assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
+});
+
+test('respondByType returns raw qrcode source content without generating qr text', async () => {
+  const response = createMockResponse();
+
+  await respondByType(createMockRequest({ method: 'GET' }), response, {
+    type: 'qrcode',
+    content: 'https://example.com',
+    path: 'qr',
+    redis: null,
+    raw: true,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body, 'https://example.com');
+  assert.doesNotMatch(response.body, /Scan this QR code/);
+  assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
+});
+
+test('respondByType returns raw file object key without requiring S3', async () => {
+  const response = createMockResponse();
+
+  await respondByType(createMockRequest({ method: 'GET' }), response, {
+    type: 'file',
+    content: 'post/default/object-key.png',
+    path: 'image',
+    redis: null,
+    raw: true,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body, 'post/default/object-key.png');
+  assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
+});
+
+test('respondByType keeps topic rendering when raw is requested', async () => {
+  const response = createMockResponse();
+  const topicMarkdown = [
+    '<div style="font-size: 1.3em; font-weight: bold">Topic</div>',
+    '\n\n',
+    '<span style="color: #666;">Home</span>',
+  ].join('\n');
+
+  await respondByType(createMockRequest({ method: 'GET' }), response, {
+    type: 'topic',
+    content: topicMarkdown,
+    title: 'Topic',
+    path: 'topic',
+    redis: null,
+    raw: true,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.match(response.body, /<title>Topic<\/title>/);
+  assert.equal(response.getHeader('content-type'), 'text/html; charset=utf-8');
+});
+
+test('respondByType omits body for head raw responses with exact content length', async () => {
+  const response = createMockResponse();
+
+  await respondByType(createMockRequest({ method: 'HEAD' }), response, {
+    type: 'html',
+    content: '<p>Hello</p>',
+    path: 'note',
+    redis: null,
+    raw: true,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body, '');
+  assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
+  assert.equal(response.getHeader('content-length'), Buffer.byteLength('<p>Hello</p>'));
+});
+
 test('respondByType omits body for head html responses', async () => {
   const response = createMockResponse();
 
