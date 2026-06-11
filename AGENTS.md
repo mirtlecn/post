@@ -104,6 +104,7 @@ Notes:
 - `test:unit` runs only `node --test`.
 - `test:smoke` runs both local smoke suites without re-running unit tests.
 - `test:vercel` is optional and must stay outside the default local chain unless the environment is known to have `vercel dev`.
+- Run `npm run test:vercel` outside the sandbox / with escalated permissions by default. If `vercel dev` shows no progress for 10 seconds, stop that run and restart it instead of waiting indefinitely.
 - To run only one local smoke suite, call `bash test/functional/run-local.sh` or `bash test/functional/run-api-local.sh` directly.
 
 ## Testing Conventions
@@ -134,6 +135,7 @@ Notes:
   - `web/src/lib/composer-mode.js`
   - `web/src/components/CreatePanel.jsx`
 - If smoke tests hang inside a sandboxed environment, rerun outside the sandbox before assuming the script logic is broken. This repo's local smoke scripts start nested long-lived processes (`npm start`), which can expose sandbox process-management issues.
+- Vercel smoke is more sensitive to sandbox process and watcher behavior than local smoke. Prefer the escalated `npm run test:vercel` path first.
 
 ## Git Expectations
 
