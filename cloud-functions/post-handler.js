@@ -1,5 +1,4 @@
 import { createFetchNodeAdapters } from '../lib/server/fetch-node-adapter.js';
-import { errorResponse } from '../lib/utils/response.js';
 
 const EDGEONE_ENV_KEYS = [
   'LINKS_REDIS_URL',
@@ -94,26 +93,10 @@ export function createEdgeOneRequestHandler({
     const requestUrl = new URL(request.url, 'http://localhost');
     const handlers = await loadHandlers();
     const handler = selectEdgeOneHandler(requestUrl.pathname, handlers);
-    const { req, res } = await createFetchNodeAdapters(request, { streamResponse: true });
+    const { req, res } = await createFetchNodeAdapters(request);
 
-    const responsePromise = res.toFetchResponse({ method: req.method });
-    Promise.resolve()
-      .then(() => handler(req, res))
-      .then(() => {
-        if (!res.writableEnded) {
-          res.end();
-        }
-      })
-      .catch((error) => {
-        console.error('EdgeOne request failed:', error);
-        if (!res.headersSent && !res.writableEnded) {
-          errorResponse(res, { code: 'internal', message: 'Internal server error' }, 500);
-          return;
-        }
-        res.destroy(error);
-      });
-
-    const response = await responsePromise;
+    await handler(req, res);
+    const response = await res.toFetchResponse({ method: req.method });
     return applyEdgeOneResponsePolicy(response, requestUrl);
   };
 }

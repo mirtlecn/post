@@ -7,12 +7,6 @@ import { createFetchNodeAdapters } from '../lib/server/fetch-node-adapter.js';
 import { jsonResponse } from '../lib/utils/response.js';
 import { getDomain, parseRequestBodyWithLimit } from '../lib/utils/storage.js';
 
-function delay(ms, value) {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(value), ms);
-  });
-}
-
 test('fetch node adapter sends json action requests through existing api handlers', async () => {
   const request = new Request('https://post.example/create?debug=1', {
     method: 'POST',
@@ -89,47 +83,6 @@ test('fetch node adapter preserves status, headers, and set-cookie', async () =>
   assert.equal(response.headers.get('set-cookie'), 'post_admin_session=session-123; Path=/api/admin; HttpOnly');
   assert.equal(response.headers.get('x-test-header'), 'edgeone');
   assert.equal(await response.text(), 'ok');
-});
-
-test('edgeone handler returns a streaming response before the body finishes', async () => {
-  let releaseBody;
-  const bodyGate = new Promise((resolve) => {
-    releaseBody = resolve;
-  });
-  const handler = createEdgeOneRequestHandler({
-    loadHandlers: async () => ({
-      handleRoot: async (req, res) => {
-        res.status(200);
-        res.setHeader('Content-Type', 'text/plain');
-        res.write('first ');
-        await bodyGate;
-        res.end('second');
-      },
-      handleAdmin: async (req, res) => res.status(404).send('no'),
-      handleAdminSession: async (req, res) => res.status(404).send('no'),
-    }),
-  });
-
-  const responsePromise = handler({
-    request: new Request('https://post.example/large-file', { method: 'GET' }),
-  });
-  const response = await Promise.race([
-    responsePromise,
-    delay(50, null),
-  ]);
-
-  assert.ok(response, 'expected Response before the handler finished writing the body');
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get('content-type'), 'text/plain');
-
-  const textPromise = response.text();
-  assert.equal(await Promise.race([
-    textPromise.then(() => 'done'),
-    delay(20, 'pending'),
-  ]), 'pending');
-
-  releaseBody();
-  assert.equal(await textPromise, 'first second');
 });
 
 test('edgeone handler routes admin session, admin action api, and public paths', async () => {
