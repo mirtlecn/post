@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { assets as addonAssets } from 'gfm-addons';
-import { embeddedAssets as addonEmbeddedAssets } from 'gfm-addons/embedded';
+import { assets as gfmAssets } from 'gfm-it';
+import { embeddedAssets as gfmEmbeddedAssets } from 'gfm-it/embedded';
 import { handlePublicGet } from '../lib/handlers/public-get.js';
 import { handleCreate } from '../lib/handlers/create.js';
 import { handleDelete } from '../lib/handlers/remove.js';
@@ -119,13 +119,13 @@ test('reserved embedded asset checks only block exact manifest asset routes', as
   assert.equal(response.ended, false);
 });
 
-test('gfm-addons package assets are registered as stable internal routes', () => {
-  const routeAssets = addonAssets.filter((asset) => asset.key !== 'highlight_js');
+test('gfm-it package assets are registered as stable internal routes', () => {
+  const routeAssets = gfmAssets.filter((asset) => asset.key !== 'highlight_js');
 
-  assert.equal(addonAssets.length, 9);
+  assert.equal(gfmAssets.length, 9);
   assert.deepEqual(
-    addonEmbeddedAssets.map(({ contentBase64, ...asset }) => asset),
-    addonAssets,
+    gfmEmbeddedAssets.map(({ contentBase64, ...asset }) => asset),
+    gfmAssets,
   );
   assert.equal(isReservedAssetPath('asset/highlight_js'), false);
   assert.equal(lookupEmbeddedAsset('/asset/highlight_js'), null);
@@ -139,12 +139,12 @@ test('gfm-addons package assets are registered as stable internal routes', () =>
     assert.ok(registered, `missing registered asset for ${asset.key}`);
     assert.equal(registered.content_type, asset.contentType);
 
-    const embeddedAsset = addonEmbeddedAssets.find((item) => item.key === asset.key);
+    const embeddedAsset = gfmEmbeddedAssets.find((item) => item.key === asset.key);
     assert.ok(embeddedAsset, `missing embedded asset for ${asset.key}`);
     assert.equal(
       Buffer.compare(registered.content, Buffer.from(embeddedAsset.contentBase64, 'base64')),
       0,
-      `${asset.key} registered content should match gfm-addons embedded content`,
+      `${asset.key} registered content should match gfm-it embedded content`,
     );
   }
 });
