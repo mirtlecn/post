@@ -63,6 +63,26 @@ test('convertMarkdownToHtml keeps empty title tag when pageTitle is missing', ()
   assert.match(html, /<title><\/title>/);
 });
 
+test('convertMarkdownToHtml lets gfm-it strip YAML front matter', () => {
+  const html = convertMarkdownToHtml('---\ntitle: Hidden\n---\n# Visible');
+
+  assert.match(html, /Visible/);
+  assert.doesNotMatch(html, /title: Hidden/);
+});
+
+test('convertMarkdownToHtml preserves topic backlink when YAML front matter is present', () => {
+  const html = convertMarkdownToHtml('---\ntitle: Hidden\n---\n# Visible', {
+    pageTitle: 'Anime Archive',
+    topicBackLink: '/anime',
+    topicBackLabel: 'anime',
+  });
+
+  assert.match(html, /<div style="font-size: 1.3em; font-weight: bold">anime<\/div>/);
+  assert.match(html, /<a href="\/anime"><strong>Home<\/strong><\/a> \/  <span style="color: #666;">Anime Archive<\/span>/);
+  assert.match(html, /Visible/);
+  assert.doesNotMatch(html, /title: Hidden/);
+});
+
 test('convertMarkdownToHtml uses embedded base asset', () => {
   const html = convertMarkdownToHtml('# Hello');
 
@@ -75,7 +95,7 @@ test('convertMarkdownToHtml advertises raw markdown alternate output', () => {
   const html = convertMarkdownToHtml('# Hello');
 
   assert.match(html, /<link rel="alternate" type="text\/plain" href="\?raw">/);
-  assert.match(html, /<body>\n<!-- hint: append \?raw to view the raw file -->\n<article class="markdown-body">/);
+  assert.match(html, /<body>\n<!-- hint: append \?raw to view the raw file -->\n+<article class="markdown-body">/);
 });
 
 test('convertMarkdownToHtml injects embedded highlight assets for code blocks', () => {

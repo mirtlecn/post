@@ -120,13 +120,17 @@ test('reserved embedded asset checks only block exact manifest asset routes', as
 });
 
 test('gfm-addons package assets are registered as stable internal routes', () => {
-  assert.equal(addonAssets.length, 8);
+  const routeAssets = addonAssets.filter((asset) => asset.key !== 'highlight_js');
+
+  assert.equal(addonAssets.length, 9);
   assert.deepEqual(
     addonEmbeddedAssets.map(({ contentBase64, ...asset }) => asset),
     addonAssets,
   );
+  assert.equal(isReservedAssetPath('asset/highlight_js'), false);
+  assert.equal(lookupEmbeddedAsset('/asset/highlight_js'), null);
 
-  for (const asset of addonAssets) {
+  for (const asset of routeAssets) {
     const routePath = `/asset/${asset.key}`;
     assert.equal(getEmbeddedAssetUrl(asset.key), routePath);
     assert.equal(isReservedAssetPath(routePath.slice(1)), true);
