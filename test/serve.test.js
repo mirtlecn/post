@@ -108,6 +108,47 @@ test('resolvePublicRender renders markdown as html for regular entries', async (
   assert.match(renderResult.renderedContent, /<h1 id="hello">Hello<\/h1>/);
 });
 
+test('resolvePublicRender passes canonical urls from request headers and BASE_DOMAIN', async () => {
+  const previousBaseDomain = process.env.BASE_DOMAIN;
+  const req = createMockRequest({
+    headers: {
+      host: 'internal.example',
+      'x-forwarded-host': 'public.example',
+      'x-forwarded-proto': 'https',
+    },
+  });
+
+  try {
+    delete process.env.BASE_DOMAIN;
+    const headerRenderResult = await resolvePublicRender({
+      req,
+      type: 'md',
+      content: '# Hello',
+      title: 'Greeting',
+      path: 'note',
+      redis: createTopicRedis(),
+    });
+
+    assert.match(headerRenderResult.renderedContent, /<link rel="canonical" href="https:\/\/public\.example\/note">/);
+    assert.match(headerRenderResult.renderedContent, /<meta property="og:url" content="https:\/\/public\.example\/note">/);
+
+    process.env.BASE_DOMAIN = 'https://www.example.com/base';
+    const baseDomainRenderResult = await resolvePublicRender({
+      req,
+      type: 'md',
+      content: '# Hello',
+      title: 'Greeting',
+      path: 'note',
+      redis: createTopicRedis(),
+    });
+
+    assert.match(baseDomainRenderResult.renderedContent, /<link rel="canonical" href="https:\/\/www\.example\.com\/note">/);
+    assert.match(baseDomainRenderResult.renderedContent, /<meta property="og:url" content="https:\/\/www\.example\.com\/note">/);
+  } finally {
+    restoreEnvironmentValue('BASE_DOMAIN', previousBaseDomain);
+  }
+});
+
 test('resolvePublicRender renders topic markdown with a backlink', async () => {
   const redis = createTopicRedis();
   redis.set('surl:notes', '{"type":"topic","content":"<article></article>","title":"Notes"}');

@@ -57,10 +57,10 @@ test('convertMarkdownToHtml omits title suffix when pageTitle is missing', () =>
   assert.doesNotMatch(html, /color: #666/);
 });
 
-test('convertMarkdownToHtml keeps empty title tag when pageTitle is missing', () => {
+test('convertMarkdownToHtml falls back to the first heading when pageTitle is missing', () => {
   const html = convertMarkdownToHtml('# Hello');
 
-  assert.match(html, /<title><\/title>/);
+  assert.match(html, /<title>Hello<\/title>/);
 });
 
 test('convertMarkdownToHtml lets gfm-it strip YAML front matter', () => {
@@ -89,6 +89,22 @@ test('convertMarkdownToHtml uses embedded base asset', () => {
   assert.match(html, new RegExp(getEmbeddedAssetUrl('ravel_gfm_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(html, /\/asset\/ravel_gfm_css/);
   assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/gh\/mirtlecn\/public\/ravel-gfm/);
+});
+
+test('convertMarkdownToHtml enables fallback social images by default', () => {
+  const html = convertMarkdownToHtml('# Hello');
+
+  assert.match(html, /<meta property="og:image" content="https:\/\/picsum\.photos\/seed\/[a-f0-9]{16}\/1200\/630\.jpg\?grayscale">/);
+  assert.match(html, /<meta name="twitter:image" content="https:\/\/picsum\.photos\/seed\/[a-f0-9]{16}\/1200\/630\.jpg\?grayscale">/);
+});
+
+test('convertMarkdownToHtml passes canonical through to gfm-it', () => {
+  const html = convertMarkdownToHtml('# Hello', {
+    canonical: 'https://example.test/note',
+  });
+
+  assert.match(html, /<link rel="canonical" href="https:\/\/example\.test\/note">/);
+  assert.match(html, /<meta property="og:url" content="https:\/\/example\.test\/note">/);
 });
 
 test('convertMarkdownToHtml advertises raw markdown alternate output', () => {
