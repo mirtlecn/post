@@ -281,7 +281,7 @@ test('respondByType returns raw file object key without requiring S3', async () 
   assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
 });
 
-test('respondByType keeps topic rendering when raw is requested', async () => {
+test('respondByType returns raw topic markdown without rendering html', async () => {
   const response = createMockResponse();
   const topicMarkdown = [
     '<div style="font-size: 1.3em; font-weight: bold">Topic</div>',
@@ -299,8 +299,10 @@ test('respondByType keeps topic rendering when raw is requested', async () => {
   });
 
   assert.equal(response.statusCode, 200);
-  assert.match(response.body, /<title>Topic<\/title>/);
-  assert.equal(response.getHeader('content-type'), 'text/html; charset=utf-8');
+  assert.equal(response.body, topicMarkdown);
+  assert.doesNotMatch(response.body, /<title>Topic<\/title>/);
+  assert.equal(response.getHeader('content-type'), 'text/plain; charset=utf-8');
+  assert.equal(response.getHeader('cache-control'), 'public, max-age=600, s-maxage=600');
 });
 
 test('respondByType omits body for head raw responses with exact content length', async () => {

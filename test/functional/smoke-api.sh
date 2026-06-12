@@ -1164,8 +1164,9 @@ expect_body_contains "# Topic Entry"
 expect_body_not_contains "<h1"
 request GET "$BASE_URL/$READ_TOPIC_PATH?raw"
 expect_status 200
-expect_header_contains "^content-type: text/html; charset=utf-8"
+expect_header_contains "^content-type: text/plain; charset=utf-8"
 expect_body_contains "Topic Entry"
+expect_body_not_contains "<h1"
 log "公开 raw 读取 read contract 资源通过"
 
 CURRENT_STEP="POST /query type/convert 冲突"
