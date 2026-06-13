@@ -30,7 +30,7 @@ test('handlePublicGet rejects direct embedded asset access', async () => {
   await handlePublicGet(
     createMockRequest({
       method: 'GET',
-      url: '/asset/ravel.gfm.css',
+      url: '/asset/terminal.gfm.css',
       headers: { host: 'example.com' },
     }),
     response,
@@ -46,7 +46,7 @@ test('handlePublicGet serves embedded asset for same-origin referer', async () =
   await handlePublicGet(
     createMockRequest({
       method: 'GET',
-      url: '/asset/ravel.gfm.css',
+      url: '/asset/terminal.gfm.css',
       headers: { host: 'example.com', referer: 'http://example.com/note' },
     }),
     response,
@@ -64,7 +64,7 @@ test('handlePublicGet responds to head requests without a body for embedded asse
   await handlePublicGet(
     createMockRequest({
       method: 'HEAD',
-      url: '/asset/ravel.gfm.css',
+      url: '/asset/terminal.gfm.css',
       headers: { host: 'example.com', referer: 'http://example.com/note' },
     }),
     response,
