@@ -86,8 +86,8 @@ test('convertMarkdownToHtml preserves topic backlink when YAML front matter is p
 test('convertMarkdownToHtml uses embedded base asset', () => {
   const html = convertMarkdownToHtml('# Hello');
 
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('ravel_gfm_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(html, /\/asset\/ravel_gfm_css/);
+  assert.match(html, new RegExp(getEmbeddedAssetUrl('ravel.gfm.css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, /\/asset\/ravel.gfm.css/);
   assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/gh\/mirtlecn\/public\/ravel-gfm/);
 });
 
@@ -117,17 +117,17 @@ test('convertMarkdownToHtml advertises raw markdown alternate output', () => {
 test('convertMarkdownToHtml injects embedded highlight assets for code blocks', () => {
   const html = convertMarkdownToHtml('```js\nconsole.log("hi")\n```');
 
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('highlight_light_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('highlight_dark_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, new RegExp(getEmbeddedAssetUrl('highlight-light.css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, new RegExp(getEmbeddedAssetUrl('highlight-dark.css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 });
 
 test('convertMarkdownToHtml injects embedded toc assets when enough headings exist', () => {
   const html = convertMarkdownToHtml('# One\n\n## Two');
 
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm_addons_css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm_addons_js').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(html, /\/asset\/gfm_addons_css/);
-  assert.match(html, /\/asset\/gfm_addons_js/);
+  assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm-addons.css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, new RegExp(getEmbeddedAssetUrl('gfm-addons.js').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, /\/asset\/gfm-addons.css/);
+  assert.match(html, /\/asset\/gfm-addons.js/);
 });
 
 test('convertMarkdownToHtml omits footer when FOOTER is unset or blank', () => {
@@ -163,7 +163,7 @@ test('convertMarkdownToHtml injects configured footer html', () => {
   withFooterEnv(encodedFooter, () => {
     const html = convertMarkdownToHtml('# One\n\n## Two');
     const articleEndIndex = html.indexOf('</article>');
-    const tocScriptIndex = html.indexOf(getEmbeddedAssetUrl('gfm_addons_js'));
+    const tocScriptIndex = html.indexOf(getEmbeddedAssetUrl('gfm-addons.js'));
     const footerIndex = html.indexOf('<footer class="markdown-body post-footer">');
 
     assert.notEqual(footerIndex, -1);

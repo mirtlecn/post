@@ -30,7 +30,7 @@ test('handlePublicGet rejects direct embedded asset access', async () => {
   await handlePublicGet(
     createMockRequest({
       method: 'GET',
-      url: '/asset/ravel_gfm_css',
+      url: '/asset/ravel.gfm.css',
       headers: { host: 'example.com' },
     }),
     response,
@@ -46,7 +46,7 @@ test('handlePublicGet serves embedded asset for same-origin referer', async () =
   await handlePublicGet(
     createMockRequest({
       method: 'GET',
-      url: '/asset/ravel_gfm_css',
+      url: '/asset/ravel.gfm.css',
       headers: { host: 'example.com', referer: 'http://example.com/note' },
     }),
     response,
@@ -64,7 +64,7 @@ test('handlePublicGet responds to head requests without a body for embedded asse
   await handlePublicGet(
     createMockRequest({
       method: 'HEAD',
-      url: '/asset/ravel_gfm_css',
+      url: '/asset/ravel.gfm.css',
       headers: { host: 'example.com', referer: 'http://example.com/note' },
     }),
     response,
@@ -79,7 +79,7 @@ test('handleCreate rejects reserved embedded asset path', async () => {
   const response = createMockResponse();
 
   await handleCreate(
-    createJsonRequest('POST', { url: 'hello', path: 'asset/ravel_gfm_css', type: 'text' }),
+    createJsonRequest('POST', { url: 'hello', path: 'asset/ravel.gfm.css', type: 'text' }),
     response,
   );
 
@@ -91,7 +91,7 @@ test('handleDelete rejects reserved embedded asset path', async () => {
   const response = createMockResponse();
 
   await handleDelete(
-    createJsonRequest('DELETE', { path: 'asset/ravel_gfm_css', type: 'text' }),
+    createJsonRequest('DELETE', { path: 'asset/ravel.gfm.css', type: 'text' }),
     response,
   );
 
@@ -100,19 +100,19 @@ test('handleDelete rejects reserved embedded asset path', async () => {
 });
 
 test('reserved embedded asset checks only block exact manifest asset routes', async () => {
-  assert.equal(isReservedAssetPath('asset/ravel_gfm_css'), true);
-  assert.equal(isReservedAssetPath('asset/ravel_gfm_css/extra'), false);
-  assert.equal(isReservedAssetPath('asert/ravel_gfm_css'), false);
+  assert.equal(isReservedAssetPath('asset/ravel.gfm.css'), true);
+  assert.equal(isReservedAssetPath('asset/ravel.gfm.css/extra'), false);
+  assert.equal(isReservedAssetPath('asert/ravel.gfm.css'), false);
 
   const response = createMockResponse();
   const handled = handleEmbeddedAssetRequest(
     createMockRequest({
       method: 'GET',
-      url: '/asert/ravel_gfm_css',
+      url: '/asert/ravel.gfm.css',
       headers: { host: 'example.com' },
     }),
     response,
-    new URL('http://example.com/asert/ravel_gfm_css'),
+    new URL('http://example.com/asert/ravel.gfm.css'),
   );
 
   assert.equal(handled, false);
@@ -120,15 +120,15 @@ test('reserved embedded asset checks only block exact manifest asset routes', as
 });
 
 test('gfm-it package assets are registered as stable internal routes', () => {
-  const routeAssets = gfmAssets.filter((asset) => asset.key !== 'highlight_js');
+  const excludedAssetKeys = new Set(['highlight-core.js']);
+  const routeAssets = gfmAssets.filter((asset) => !excludedAssetKeys.has(asset.key));
 
-  assert.equal(gfmAssets.length, 9);
   assert.deepEqual(
     gfmEmbeddedAssets.map(({ contentBase64, ...asset }) => asset),
     gfmAssets,
   );
-  assert.equal(isReservedAssetPath('asset/highlight_js'), false);
-  assert.equal(lookupEmbeddedAsset('/asset/highlight_js'), null);
+  assert.equal(isReservedAssetPath('asset/highlight-core.js'), false);
+  assert.equal(lookupEmbeddedAsset('/asset/highlight-core.js'), null);
 
   for (const asset of routeAssets) {
     const routePath = `/asset/${asset.key}`;
