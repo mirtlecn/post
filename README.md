@@ -17,35 +17,31 @@ Suggested shell variables:
 ```bash
 export POST_BASE_URL="https://example.com"
 export POST_TOKEN="your-secret-key"
-```
 
-Management actions use top-level POST endpoints:
-
-```bash
+# Create a new content item
 curl -H "Authorization: Bearer $POST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"path":"note","url":"hello","type":"text"}' \
   "$POST_BASE_URL/create"
 
+# Query the content item
 curl -H "Authorization: Bearer $POST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"path":"note"}' \
   "$POST_BASE_URL/query"
 
+# Overwrite the content item
 curl -H "Authorization: Bearer $POST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"path":"note","url":"updated","type":"text"}' \
   "$POST_BASE_URL/update"
 
+# Remove the content item
 curl -H "Authorization: Bearer $POST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"path":"note"}' \
   "$POST_BASE_URL/delete"
 ```
-
-`GET /query`, `GET /create`, `GET /update`, and `GET /delete` remain normal public content paths.
-
-Append `?raw` to a public content URL to read the stored content field without redirecting or rendering it.
 
 For details, see [API documentation](https://github.com/mirtlecn/post-go/blob/master/API.md)
 
@@ -54,6 +50,19 @@ For details, see [API documentation](https://github.com/mirtlecn/post-go/blob/ma
 [CLI client](https://github.com/mirtlecn/post-cli)
 
 ## Deploy
+
+### Local
+
+Prerequisites:
+- Node.js 24+
+- Redis (a valid Redis URL. Get a free one at <https://redis.com/>)
+- S3-compatible storage (Required for file uploads)
+
+```bash
+npm install
+cp .env.example .env.local
+npm start
+```
 
 ### Vercel 
 
@@ -70,20 +79,7 @@ Required:
 
 Same as Vercel.
 
-### Local
-
-Prerequisites:
-- Node.js 24+
-- Redis (a valid Redis URL. Get a free one at <https://redis.com/>)
-- S3-compatible storage (Required for file uploads)
-
-```bash
-npm install
-cp .env.example .env.local
-npm start
-```
-
-## Testing
+## Test
 
 - `npm test`: runs the full local regression chain: unit tests, local admin/web smoke, and local API smoke.
 - `npm run test:unit`: runs only the Node unit test suite.
