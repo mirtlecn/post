@@ -127,7 +127,7 @@ export function ListPanel({ items, loading = false, onCopy, onDelete, onEdit }) 
           <TableHeader>
             <TableRow>
               <TableHead className={`${headClassName} ${pathColumnClassName}`}>Path</TableHead>
-              <TableHead className={`${headClassName} ${metaColumnClassName}`}>Meta</TableHead>
+              <TableHead className={`${headClassName} ${metaColumnClassName}`}>Info</TableHead>
               <TableHead className={headClassName}>Preview</TableHead>
               <TableHead className={`${headClassName} ${actionColumnClassName}`}>Actions</TableHead>
             </TableRow>

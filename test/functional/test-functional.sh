@@ -670,7 +670,7 @@ request POST "$BASE_URL/api?admin=query" "{\"path\":\"$QRCODE_PATH\"}" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"type\":\"qrcode\""
-expect_body_contains 'https://example...'
+expect_body_contains 'https://example.com/qr-source'
 request POST "$BASE_URL/api?admin=query" "" -b "$COOKIE_JAR"
 expect_status 200
 expect_body_matches "\"path\":\"$QRCODE_PATH\"[^\n]*\"type\":\"qrcode\""

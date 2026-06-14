@@ -91,7 +91,7 @@ test('findMatchedPaths excludes topic homes for normal wildcard lookups', async 
 test('listAuthenticatedItems returns wildcard lookup items with topic filtering and export semantics', async () => {
   const redis = createFakeRedis({
     storedValues: {
-      'surl:note-a': JSON.stringify({ type: 'text', content: 'hello world content', title: 'Note A', created: '2026-03-20' }),
+      'surl:note-a': JSON.stringify({ type: 'text', content: 'hello world content with enough extra words for preview trimming', title: 'Note A', created: '2026-03-20' }),
       'surl:topic-a': JSON.stringify({ type: 'topic', content: '<html></html>', title: 'Topic A', created: '2026-03-20' }),
       'surl:topic-a/child': JSON.stringify({ type: 'text', content: 'child body', title: 'Child' }),
     },
@@ -110,14 +110,14 @@ test('listAuthenticatedItems returns wildcard lookup items with topic filtering 
   });
   assert.equal(normalItems.length, 2);
   assert.deepEqual(normalItems.map((item) => item.path), ['note-a', 'topic-a/child']);
-  assert.equal(normalItems[0].content, 'hello world con...');
+  assert.equal(normalItems[0].content, 'hello world content with enough extra ...');
   assert.equal(normalItems[0].ttl, 2);
 
   const exportedItems = await listAuthenticatedItems(createRequest(true), redis, ['note-a'], {
     excludeTopics: true,
     isExport: true,
   });
-  assert.equal(exportedItems[0].content, 'hello world content');
+  assert.equal(exportedItems[0].content, 'hello world content with enough extra words for preview trimming');
 
   const topicItems = await listAuthenticatedItems(createRequest(), redis, ['topic-a', 'topic-a/child'], {
     onlyTopics: true,
