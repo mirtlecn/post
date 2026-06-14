@@ -119,7 +119,6 @@ export function CreatePanel(props) {
   function onTopicChange(nextTopicPath) {
     if (composer.isTopicMode) return;
 
-    if (nextTopicPath) setMetaOpen(true);
     composer.updateTopic(nextTopicPath);
     props.onFilterChange?.({ path: '' });
     props.onTopicChange?.(nextTopicPath);

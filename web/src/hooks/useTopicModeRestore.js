@@ -30,7 +30,6 @@ export function useTopicModeRestore({ composer, metaOpen, setMetaOpen, clearNati
         });
       }
       composer.enterTopicMode();
-      setMetaOpen(true);
       clearNativeFileInput();
       return;
     }
