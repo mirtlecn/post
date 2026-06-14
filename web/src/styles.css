@@ -247,9 +247,6 @@ body,
   font-size: .88rem;
   font-weight: 600;
   transition: color .18s ease, background-color .18s ease;
-}
-
-.path-prefix-select-trigger {
   width: 3rem !important;
   min-width: 3rem;
   max-width: 3rem;
