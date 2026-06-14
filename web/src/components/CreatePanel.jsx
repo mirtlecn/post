@@ -94,7 +94,7 @@ export function CreatePanel(props) {
 
     const { snapshot } = props.editRequest;
     composer.restoreForm(snapshot);
-    setMetaOpen(Boolean(snapshot.metaOpen));
+    setMetaOpen(false);
     setTtlFocused(false);
     props.onFilterChange?.({
       path: snapshot.path,
