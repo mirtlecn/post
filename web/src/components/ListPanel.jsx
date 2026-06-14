@@ -1,49 +1,57 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { COPY_FEEDBACK_MS, DELETE_CONFIRM_MS, LIST_BATCH_SIZE } from '../config.js';
+import { COPY_FEEDBACK_MS, LIST_BATCH_SIZE } from '../config.js';
 import { buildVisibleListItems, getItemTypeLabel } from '../lib/list-panel.js';
 import { ListPanelRow } from './ListPanelRow.jsx';
+import { Skeleton } from './ui/skeleton.jsx';
 import {
   Table,
   TableBody,
+  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from './ui/table.jsx';
 
 const LOAD_MORE_THRESHOLD_PX = 80;
+const SKELETON_ROW_COUNT = 4;
 
-export function ListPanel({ items, onCopy, onDelete, onEdit }) {
-  const [confirmPath, setConfirmPath] = useState('');
+function ListPanelSkeletonRows({ actionColumnClassName, metaColumnClassName, pathColumnClassName }) {
+  return Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
+    <TableRow key={index}>
+      <TableCell className={pathColumnClassName}>
+        <Skeleton className="mb-2 h-4 w-4/5" />
+        <Skeleton className="h-3 w-2/5" />
+      </TableCell>
+      <TableCell className={metaColumnClassName}>
+        <Skeleton className="mb-2 h-4 w-24" />
+        <Skeleton className="h-3 w-20" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-full" />
+      </TableCell>
+      <TableCell className={actionColumnClassName}>
+        <Skeleton className="ml-auto size-7 rounded-md" />
+      </TableCell>
+    </TableRow>
+  ));
+}
+
+export function ListPanel({ items, loading = false, onCopy, onDelete, onEdit }) {
   const [deletingPath, setDeletingPath] = useState('');
   const [copiedPath, setCopiedPath] = useState('');
-  const [isMobile, setIsMobile] = useState(false);
   const [visibleCount, setVisibleCount] = useState(LIST_BATCH_SIZE);
   const listScrollRef = useRef(null);
   const loadMoreRef = useRef(null);
   const { hasMore, rows } = useMemo(() => buildVisibleListItems(items, visibleCount), [items, visibleCount]);
-  const actionTooltip = isMobile ? 'left' : 'top';
 
   const loadMoreItems = useCallback(() => {
     setVisibleCount((currentCount) => Math.min(items.length, currentCount + LIST_BATCH_SIZE));
   }, [items.length]);
 
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 768px)');
-    const sync = () => setIsMobile(media.matches);
-    sync();
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', sync);
-      return () => media.removeEventListener('change', sync);
-    }
-    media.addListener(sync);
-    return () => media.removeListener(sync);
-  }, []);
-
-  useEffect(() => {
-    if (confirmPath && !items.some((item) => item.path === confirmPath)) setConfirmPath('');
     if (deletingPath && !items.some((item) => item.path === deletingPath)) setDeletingPath('');
     if (copiedPath && !items.some((item) => item.path === copiedPath)) setCopiedPath('');
-  }, [items, confirmPath, deletingPath, copiedPath]);
+  }, [items, deletingPath, copiedPath]);
 
   useEffect(() => {
     setVisibleCount(LIST_BATCH_SIZE);
@@ -55,34 +63,8 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
     return () => window.clearTimeout(timer);
   }, [copiedPath]);
 
-  useEffect(() => {
-    if (!confirmPath) return undefined;
-    const timer = window.setTimeout(() => setConfirmPath(''), DELETE_CONFIRM_MS);
-    return () => window.clearTimeout(timer);
-  }, [confirmPath]);
-
-  useEffect(() => {
-    if (!confirmPath) return undefined;
-    function onDocumentPointerDown(event) {
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        setConfirmPath('');
-        return;
-      }
-      const button = target.closest('[data-delete-btn="true"]');
-      if (button?.getAttribute('data-path') === confirmPath) return;
-      setConfirmPath('');
-    }
-    document.addEventListener('pointerdown', onDocumentPointerDown);
-    return () => document.removeEventListener('pointerdown', onDocumentPointerDown);
-  }, [confirmPath]);
-
-  async function confirmDelete(path) {
+  async function deleteItem(path) {
     if (deletingPath) return;
-    if (confirmPath !== path) {
-      setConfirmPath(path);
-      return;
-    }
     setDeletingPath(path);
     try {
       const item = items.find((entry) => entry.path === path);
@@ -90,19 +72,17 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
       await onDelete(item);
     } finally {
       setDeletingPath('');
-      setConfirmPath('');
     }
   }
 
   async function copyLink(path, surl) {
     if (copiedPath) return;
-    setConfirmPath('');
     const ok = await onCopy(surl);
     if (ok) setCopiedPath(path);
   }
 
   function handleListScroll(event) {
-    if (!hasMore) return;
+    if (loading || !hasMore) return;
     const target = event.currentTarget;
     const remainingScroll = target.scrollHeight - target.scrollTop - target.clientHeight;
     if (remainingScroll <= LOAD_MORE_THRESHOLD_PX) {
@@ -111,7 +91,7 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
   }
 
   useEffect(() => {
-    if (!hasMore) return undefined;
+    if (loading || !hasMore) return undefined;
     const root = listScrollRef.current;
     const target = loadMoreRef.current;
     if (!root || !target || typeof window.IntersectionObserver !== 'function') return undefined;
@@ -126,48 +106,50 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
     );
     observer.observe(target);
     return () => observer.disconnect();
-  }, [hasMore, loadMoreItems, rows.length]);
+  }, [hasMore, loadMoreItems, loading, rows.length]);
 
-  const tableClassName = isMobile ? 'list-table-mobile' : 'table-fixed';
-  const pathColumnClassName = isMobile ? 'w-[10rem] max-w-[10rem]' : 'w-[18rem] max-w-[18rem]';
-  const metaColumnClassName = isMobile ? 'w-[8.5rem] max-w-[8.5rem]' : 'w-[12rem] max-w-[12rem]';
-  const actionColumnClassName = isMobile ? 'w-[10rem] text-right' : 'w-[13rem] text-right';
-  const previewColumnClassName = isMobile ? 'min-w-[8rem] max-w-[10rem] truncate text-muted-foreground' : 'max-w-md truncate text-muted-foreground';
+  const tableClassName = 'min-w-[48rem] table-fixed';
+  const pathColumnClassName = 'w-[18rem] max-w-[18rem]';
+  const metaColumnClassName = 'w-[12rem] max-w-[12rem]';
+  const actionColumnClassName = 'w-16 text-right';
+  const headClassName = 'sticky top-0 z-10 bg-card';
+  const previewColumnClassName = 'max-w-md truncate text-muted-foreground';
 
   return (
     <section className="list-panel-section pt-2">
       <div className="section-label mb-4">Links</div>
       <div
-        className="list-scroll max-h-[30rem] overflow-auto rounded-lg border border-border"
+        className="list-scroll max-h-[30rem] overflow-auto rounded-lg border border-border [&>[data-slot=table-container]]:overflow-visible"
         onScroll={handleListScroll}
         ref={listScrollRef}
       >
         <Table className={tableClassName}>
           <TableHeader>
             <TableRow>
-              <TableHead className={pathColumnClassName}>Path</TableHead>
-              <TableHead className={metaColumnClassName}>Meta</TableHead>
-              <TableHead>Preview</TableHead>
-              <TableHead className={actionColumnClassName}>Actions</TableHead>
+              <TableHead className={`${headClassName} ${pathColumnClassName}`}>Path</TableHead>
+              <TableHead className={`${headClassName} ${metaColumnClassName}`}>Meta</TableHead>
+              <TableHead className={headClassName}>Preview</TableHead>
+              <TableHead className={`${headClassName} ${actionColumnClassName}`}>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((item) => (
+            {loading ? (
+              <ListPanelSkeletonRows
+                actionColumnClassName={actionColumnClassName}
+                metaColumnClassName={metaColumnClassName}
+                pathColumnClassName={pathColumnClassName}
+              />
+            ) : rows.map((item) => (
               <ListPanelRow
-                actionTooltip={actionTooltip}
-                confirmPath={confirmPath}
                 copiedPath={copiedPath}
                 deletingPath={deletingPath}
                 item={item}
                 key={item.path}
                 metaColumnClassName={metaColumnClassName}
-                onConfirmDelete={confirmDelete}
                 onCopyLink={copyLink}
+                onDeleteItem={deleteItem}
                 onEdit={onEdit}
-                onOpenLink={(surl) => {
-                  setConfirmPath('');
-                  window.open(surl, '_blank', 'noreferrer');
-                }}
+                onOpenLink={(surl) => window.open(surl, '_blank', 'noreferrer')}
                 pathColumnClassName={pathColumnClassName}
                 previewColumnClassName={previewColumnClassName}
                 typeLabel={getItemTypeLabel(item.type)}
@@ -175,7 +157,7 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
             ))}
           </TableBody>
         </Table>
-        {hasMore && <div aria-hidden="true" className="h-2" ref={loadMoreRef} />}
+        {!loading && hasMore && <div aria-hidden="true" className="h-2" ref={loadMoreRef} />}
       </div>
     </section>
   );

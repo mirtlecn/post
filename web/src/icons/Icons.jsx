@@ -1,6 +1,7 @@
 import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
+  CircleAlert,
   Check,
   ChevronDown,
   Clock3,
@@ -12,6 +13,7 @@ import {
   Hash,
   Link2,
   LogOut,
+  MoreHorizontal,
   Pencil,
   QrCode,
   RefreshCw,
@@ -24,6 +26,7 @@ import {
 } from 'lucide-react';
 
 export const icons = {
+  alert: CircleAlert,
   close: X,
   clock: Clock3,
   copy: Copy,
@@ -34,6 +37,7 @@ export const icons = {
   folderTree: FolderTree,
   link: Link2,
   logout: LogOut,
+  more: MoreHorizontal,
   open: ExternalLink,
   qrcode: QrCode,
   refresh: RefreshCw,

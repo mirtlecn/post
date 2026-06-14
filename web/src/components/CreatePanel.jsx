@@ -13,8 +13,6 @@ export function CreatePanel(props) {
   const [metaOpen, setMetaOpen] = useState(() => Boolean(props.initialMetaOpen));
   const [ttlFocused, setTtlFocused] = useState(false);
   const panelRef = useRef(null);
-  const createdDateRef = useRef(null);
-  const createdTimeRef = useRef(null);
   const dragAndPaste = useComposerDragAndPaste({
     disabled: composer.isTopicMode || props.editLoading,
     onSelectFile: composer.setFile,
@@ -95,32 +93,6 @@ export function CreatePanel(props) {
     });
   }, [props.editRequest?.id]);
 
-  function openNativePicker(input) {
-    if (!input) return;
-    input.focus();
-    if (typeof input.showPicker === 'function') {
-      input.showPicker();
-    }
-  }
-
-  function openCreatedPicker(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (createdTimeRef.current && createdTimeRef.current.contains?.(target)) {
-      openNativePicker(createdTimeRef.current);
-      return;
-    }
-    if (createdDateRef.current && createdDateRef.current.contains?.(target)) {
-      openNativePicker(createdDateRef.current);
-      return;
-    }
-    if (!composer.form.createdDate) {
-      openNativePicker(createdDateRef.current);
-      return;
-    }
-    openNativePicker(createdTimeRef.current || createdDateRef.current);
-  }
-
   function clearSelectedFile() {
     const wasFileEditMode = composer.fileEditMode;
     composer.clearSelectedFile();
@@ -183,14 +155,11 @@ export function CreatePanel(props) {
           loading={props.editLoading}
           metaFields={(
             <ComposerMetaFields
-              createdDateRef={createdDateRef}
               createdDateValue={composer.form.createdDate}
-              createdTimeRef={createdTimeRef}
               createdTimeValue={composer.form.createdTime}
               metaVisible={metaVisible}
               onCreatedDateChange={composer.updateCreatedDate}
               onCreatedTimeChange={composer.updateCreatedTime}
-              onOpenCreatedPicker={openCreatedPicker}
               onTitleChange={composer.updateTitle}
               onToggleMeta={() => setMetaOpen((value) => !value)}
               showMetaToggle={showMetaToggle}

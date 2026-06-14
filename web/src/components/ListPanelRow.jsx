@@ -1,5 +1,25 @@
+import { useState } from 'react';
 import { icons } from '../icons/Icons.jsx';
-import { IconButton } from './IconButton.jsx';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog.jsx';
+import { Button } from './ui/button.jsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu.jsx';
 import { TableCell, TableRow } from './ui/table.jsx';
 
 function getTypeIcon(typeLabel) {
@@ -19,13 +39,11 @@ function getTypeIcon(typeLabel) {
 }
 
 export function ListPanelRow({
-  actionTooltip,
-  confirmPath,
   copiedPath,
   deletingPath,
   item,
-  onConfirmDelete,
   onCopyLink,
+  onDeleteItem,
   onEdit,
   onOpenLink,
   pathColumnClassName,
@@ -33,7 +51,13 @@ export function ListPanelRow({
   typeLabel,
   metaColumnClassName,
 }) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const TypeIcon = getTypeIcon(typeLabel);
+  const MoreIcon = icons.more;
+  const EditIcon = icons.edit;
+  const OpenIcon = icons.open;
+  const CopyIcon = copiedPath === item.path ? icons.check : icons.copy;
+  const DeleteIcon = deletingPath === item.path ? icons.refresh : icons.delete;
 
   return (
     <TableRow>
@@ -63,31 +87,53 @@ export function ListPanelRow({
       </TableCell>
       <TableCell className={previewColumnClassName} title={item.content}>{item.content}</TableCell>
       <TableCell className="overflow-visible">
-        <div className="flex justify-end gap-1.5 overflow-visible">
-          <IconButton icon={icons.edit} onClick={() => onEdit(item)} title="Edit" tooltip={actionTooltip} />
-          <IconButton icon={icons.open} onClick={() => onOpenLink(item.surl)} title="Open" tooltip={actionTooltip} />
-          <IconButton
-            className={copiedPath === item.path ? 'text-primary' : ''}
-            disabled={copiedPath === item.path}
-            icon={copiedPath === item.path ? icons.check : icons.copy}
-            onClick={() => onCopyLink(item.path, item.surl)}
-            title={copiedPath === item.path ? 'Copied' : 'Copy'}
-            tooltip={actionTooltip}
-          />
-          {deletingPath === item.path ? (
-            <IconButton className="text-destructive opacity-80" disabled icon={icons.refresh} iconClassName="animate-spin" title="Deleting..." tooltip={actionTooltip} />
-          ) : (
-            <IconButton
-              className="text-destructive hover:bg-destructive/10"
-              data-delete-btn="true"
-              data-path={item.path}
-              icon={confirmPath === item.path ? icons.check : icons.delete}
-              onClick={() => onConfirmDelete(item.path)}
-              title={confirmPath === item.path ? 'Delete?' : 'Delete'}
-              tooltip={actionTooltip}
-            />
-          )}
-        </div>
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button aria-label={`Actions for ${item.path}`} className="ml-auto flex" size="icon" type="button" variant="ghost">
+                <MoreIcon className="size-4" strokeWidth={2.1} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={() => onEdit(item)}>
+                  <EditIcon />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onOpenLink(item.surl)}>
+                  <OpenIcon />
+                  Open
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={copiedPath === item.path} onSelect={() => onCopyLink(item.path, item.surl)}>
+                  <CopyIcon />
+                  {copiedPath === item.path ? 'Copied' : 'Copy'}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem disabled={Boolean(deletingPath)} onSelect={() => setDeleteDialogOpen(true)} variant="destructive">
+                  <DeleteIcon className={deletingPath === item.path ? 'animate-spin' : ''} />
+                  {deletingPath === item.path ? 'Deleting...' : 'Delete'}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <AlertDialogContent size="sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this item?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete {item.path}. It will be removed from the admin list and its public link will stop resolving.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => onDeleteItem(item.path)} variant="destructive">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </TableCell>
     </TableRow>
   );

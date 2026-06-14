@@ -12,7 +12,6 @@ import { ResultPanel } from './ResultPanel.jsx';
 import { ToastLayer } from './ToastLayer.jsx';
 import { Button } from './ui/button.jsx';
 import { Card, CardContent } from './ui/card.jsx';
-import { Skeleton } from './ui/skeleton.jsx';
 
 export function Dashboard({ onLogout }) {
   const [items, setItems] = useState([]);
@@ -175,26 +174,8 @@ export function Dashboard({ onLogout }) {
             onTopicChange={handleTopicChange}
             topics={topics}
           />
-          {itemsLoading ? (
-            <section className="pt-2">
-              <Skeleton className="mb-4 h-5 w-24" />
-              <div className="rounded-lg border border-border p-4">
-                <div className="mb-4 grid grid-cols-5 gap-4">
-                  <Skeleton className="h-5" />
-                  <Skeleton className="h-5" />
-                  <Skeleton className="h-5" />
-                  <Skeleton className="h-5" />
-                  <Skeleton className="h-5" />
-                </div>
-                <div className="space-y-3">
-                  <Skeleton className="h-14" />
-                  <Skeleton className="h-14" />
-                  <Skeleton className="h-14" />
-                </div>
-              </div>
-            </section>
-          ) : (
-            filteredItems.length > 0 && <ListPanel items={filteredItems} key={listResetKey} onCopy={copy} onDelete={remove} onEdit={edit} />
+          {(itemsLoading || filteredItems.length > 0) && (
+            <ListPanel items={filteredItems} key={listResetKey} loading={itemsLoading} onCopy={copy} onDelete={remove} onEdit={edit} />
           )}
         </CardContent>
       </Card>
