@@ -11,7 +11,7 @@ import { ListPanel } from './ListPanel.jsx';
 import { ResultPanel } from './ResultPanel.jsx';
 import { ToastLayer } from './ToastLayer.jsx';
 import { Button } from './ui/button.jsx';
-import { Card, CardContent } from './ui/card.jsx';
+import { Card, CardAction, CardContent, CardHeader } from './ui/card.jsx';
 
 export function Dashboard({ onLogout }) {
   const [items, setItems] = useState([]);
@@ -146,15 +146,30 @@ export function Dashboard({ onLogout }) {
   return (
     <section className="dashboard-shell mx-auto max-w-6xl px-5 py-6">
       <Card className="mb-6">
-        <CardContent className="flex items-center justify-between">
-          <Button className="dashboard-title h-auto p-0 text-5xl font-black" onClick={refreshPage} type="button" variant="ghost">
-            Post
-          </Button>
-          <div className="flex gap-2">
-            <IconButton icon={icons.close} onClick={resetDashboard} title="Clear" />
-            <IconButton className="text-destructive hover:bg-destructive/10" icon={icons.logout} onClick={onLogout} title="Logout" />
+        <CardHeader className="items-center">
+          <div className="grid gap-2">
+            <Button
+              className="dashboard-title h-auto w-fit p-0 text-2xl font-black leading-none sm:text-3xl"
+              onClick={refreshPage}
+              type="button"
+              variant="ghost"
+            >
+              Post
+            </Button>
+            <div className="h-1.5 w-20 rounded-full bg-primary" />
           </div>
-        </CardContent>
+          <CardAction className="self-center">
+            <div className="flex gap-2">
+              <IconButton icon={icons.close} onClick={resetDashboard} title="Clear" />
+              <IconButton
+                className="text-destructive hover:bg-destructive/10"
+                icon={icons.logout}
+                onClick={onLogout}
+                title="Logout"
+              />
+            </div>
+          </CardAction>
+        </CardHeader>
       </Card>
       {result ? (
         <div className="mb-6">

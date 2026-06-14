@@ -123,7 +123,7 @@ export function ListPanelRow({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this item?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete {item.path}. It will be removed from the admin list and its public link will stop resolving.
+                This permanently deletes {item.path} and disables its public link.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

@@ -18,11 +18,6 @@ function isConflictError(error) {
   return error?.status === 409 && error?.payload?.code === 'conflict';
 }
 
-function confirmOverwrite(error) {
-  const message = error?.payload?.message || 'Path already exists';
-  return window.confirm(`${message}\n\nOverwrite it?`);
-}
-
 function getFileMeta(file) {
   if (!file) return null;
   const size = file.size < 1024 * 1024
@@ -48,6 +43,7 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
   const [existingFile, setExistingFile] = useState(null);
   const [fileEditMode, setFileEditMode] = useState(false);
   const [form, setForm] = useState(buildInitialForm(selectedTopicPath));
+  const [pendingOverwrite, setPendingOverwrite] = useState(null);
   const isTopicMode = isTopicCreateType(form.convert);
   const updateFormValue = (fieldName, fieldValue) =>
     setForm((currentForm) => ({ ...currentForm, [fieldName]: fieldValue }));
@@ -74,18 +70,12 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
       return true;
     } catch (error) {
       if (isConflictError(error)) {
-        if (!confirmOverwrite(error)) {
-          return false;
-        }
-        try {
-          const payload = await submitMutation({ allowOverwrite: true });
-          await onCreated(payload);
-          reset(resetForm);
-          return true;
-        } catch (overwriteError) {
-          notify('error', overwriteError.message);
-          return false;
-        }
+        setPendingOverwrite({
+          message: error?.payload?.message || 'Path already exists',
+          resetForm,
+          submittedInTopicMode: isTopicMode,
+        });
+        return false;
       }
       notify('error', error.message);
       return false;
@@ -126,6 +116,31 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     const payload = await request({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     notify('success', allowOverwrite ? 'Updated' : 'Created');
     return payload;
+  }
+
+  async function confirmOverwrite() {
+    const overwriteRequest = pendingOverwrite;
+    if (!overwriteRequest) return false;
+
+    setBusy(true);
+    try {
+      const payload = await submitMutation({ allowOverwrite: true });
+      await onCreated(payload);
+      reset(overwriteRequest.resetForm);
+      setPendingOverwrite(null);
+      return true;
+    } catch (error) {
+      setPendingOverwrite(null);
+      notify('error', error.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function cancelOverwrite() {
+    if (busy) return;
+    setPendingOverwrite(null);
   }
 
   function updatePath(value) {
@@ -177,6 +192,7 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     setFile(null);
     setExistingFile(null);
     setFileEditMode(false);
+    setPendingOverwrite(null);
     setForm(nextForm ? buildRestoredForm(nextForm, selectedTopicPath) : buildInitialForm(selectedTopicPath));
   }
 
@@ -215,8 +231,10 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
 
   return {
     busy,
+    cancelOverwrite,
     canSubmit,
     clearSelectedFile,
+    confirmOverwrite,
     enterTopicMode,
     existingFile,
     file,
@@ -227,6 +245,7 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     isTopicMode,
     selectedTopic,
     onShortcut,
+    pendingOverwrite,
     reset,
     restoreForm,
     setFile: selectFile,

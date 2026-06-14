@@ -14,6 +14,11 @@ export function useTopicModeRestore({ composer, metaOpen, setMetaOpen, clearNati
     }
   }
 
+  function completeTopicSubmit() {
+    setMetaOpen(topicModeSnapshot?.metaOpen ?? false);
+    setTopicModeSnapshot(null);
+  }
+
   function onConvertSelect(nextConvert, closeMenu) {
     closeMenu?.();
 
@@ -48,13 +53,13 @@ export function useTopicModeRestore({ composer, metaOpen, setMetaOpen, clearNati
       return didSubmit;
     }
 
-    setMetaOpen(topicModeSnapshot?.metaOpen ?? false);
-    setTopicModeSnapshot(null);
+    completeTopicSubmit();
     return didSubmit;
   }
 
   return {
     clearTopicModeSnapshot: () => setTopicModeSnapshot(null),
+    completeTopicSubmit,
     onConvertSelect,
     submit,
     topicModeSnapshot,

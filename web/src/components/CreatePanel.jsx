@@ -6,6 +6,16 @@ import { useComposer } from '../hooks/useComposer.js';
 import { useComposerDragAndPaste } from '../hooks/useComposerDragAndPaste.js';
 import { useTopicModeRestore } from '../hooks/useTopicModeRestore.js';
 import { formatTopicLabel, getComposerUiState, resolveTtlMinutes } from '../lib/composer-mode.js';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog.jsx';
 
 export function CreatePanel(props) {
   const composer = useComposer(props);
@@ -118,6 +128,16 @@ export function CreatePanel(props) {
     await topicMode.submit(event);
   }
 
+  async function onOverwriteConfirm(event) {
+    event.preventDefault();
+
+    const submittedInTopicMode = composer.pendingOverwrite?.submittedInTopicMode;
+    const didSubmit = await composer.confirmOverwrite();
+    if (didSubmit && submittedInTopicMode) {
+      topicMode.completeTopicSubmit();
+    }
+  }
+
   function onConvertSelect(nextConvert) {
     const restoredSnapshot = composer.isTopicMode ? topicMode.topicModeSnapshot : null;
     topicMode.onConvertSelect(nextConvert);
@@ -209,6 +229,27 @@ export function CreatePanel(props) {
           ttlDisabled={ttlDisabled}
         />
       </form>
+      <AlertDialog
+        open={Boolean(composer.pendingOverwrite)}
+        onOpenChange={(open) => {
+          if (!open) composer.cancelOverwrite();
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Overwrite this item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This replaces the existing item and keeps the same public link.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={composer.busy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={composer.busy} onClick={onOverwriteConfirm}>
+              {composer.busy ? 'Overwriting...' : 'Overwrite'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
