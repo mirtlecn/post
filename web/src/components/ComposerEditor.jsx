@@ -1,4 +1,7 @@
 import { icons } from '../icons/Icons.jsx';
+import { Button } from './ui/button.jsx';
+import { Textarea } from './ui/textarea.jsx';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip.jsx';
 
 export function ComposerEditor({
   contentValue,
@@ -49,15 +52,18 @@ export function ComposerEditor({
         <div className={`composer-file-stage ${metaVisible ? 'composer-file-stage-with-meta' : ''}`}>
           <div className="file-card">
             <div className="file-card-content">
-              <div className="tooltip tooltip-top tooltip-layer" data-tip="Remove">
-                <button className="file-card-icon-button" onClick={onClearSelectedFile} type="button">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button className="file-card-icon-button" onClick={onClearSelectedFile} type="button" variant="secondary">
                   <FileBadgeIcon className="file-card-icon file-card-icon-file size-5" strokeWidth={2.1} />
                   <CloseIcon className="file-card-icon file-card-icon-remove size-5" strokeWidth={2.1} />
-                </button>
-              </div>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Remove</TooltipContent>
+              </Tooltip>
               <div className="file-card-details">
                 <div className="file-card-name text-lg font-semibold">{fileMeta.name}</div>
-                <div className="file-card-meta mt-2 text-sm text-base-content/60">
+                <div className="file-card-meta mt-2 text-sm text-muted-foreground">
                   {fileMetaItems.map((item) => <span key={item}>{item}</span>)}
                 </div>
               </div>
@@ -66,8 +72,8 @@ export function ComposerEditor({
         </div>
           ) : (
         <div className={`composer-editor ${metaVisible ? 'composer-editor-with-meta' : ''}`}>
-          <textarea
-            className={`textarea textarea-ghost composer-textarea ${metaVisible ? 'composer-textarea-with-meta' : 'composer-textarea-with-meta-icon'} ${globalDragging ? 'composer-textarea-hidden' : ''}`}
+          <Textarea
+            className={`composer-textarea ${metaVisible ? 'composer-textarea-with-meta' : 'composer-textarea-with-meta-icon'} ${globalDragging ? 'composer-textarea-hidden' : ''}`}
             disabled={fileMode}
             onChange={(event) => onContentChange(event.target.value)}
             onKeyDown={onShortcut}

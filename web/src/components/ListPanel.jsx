@@ -2,6 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COPY_FEEDBACK_MS, DELETE_CONFIRM_MS, LIST_BATCH_SIZE } from '../config.js';
 import { buildVisibleListItems, getItemTypeLabel } from '../lib/list-panel.js';
 import { ListPanelRow } from './ListPanelRow.jsx';
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from './ui/table.jsx';
 
 const LOAD_MORE_THRESHOLD_PX = 80;
 
@@ -121,30 +128,30 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
     return () => observer.disconnect();
   }, [hasMore, loadMoreItems, rows.length]);
 
-  const tableClassName = isMobile ? 'table table-zebra list-table-mobile' : 'table table-zebra table-fixed w-full';
+  const tableClassName = isMobile ? 'list-table-mobile' : 'table-fixed';
   const pathColumnClassName = isMobile ? 'w-[10rem] max-w-[10rem]' : 'w-[18rem] max-w-[18rem]';
   const metaColumnClassName = isMobile ? 'w-[8.5rem] max-w-[8.5rem]' : 'w-[12rem] max-w-[12rem]';
   const actionColumnClassName = isMobile ? 'w-[10rem] text-right' : 'w-[13rem] text-right';
-  const previewColumnClassName = isMobile ? 'min-w-[8rem] max-w-[10rem] truncate text-base-content/62' : 'max-w-md truncate text-base-content/62';
+  const previewColumnClassName = isMobile ? 'min-w-[8rem] max-w-[10rem] truncate text-muted-foreground' : 'max-w-md truncate text-muted-foreground';
 
   return (
     <section className="list-panel-section pt-2">
-      <div className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">Links</div>
+      <div className="section-label mb-4">Links</div>
       <div
-        className="list-scroll max-h-[30rem] overflow-auto rounded-[1.5rem] border border-base-300/70"
+        className="list-scroll max-h-[30rem] overflow-auto rounded-lg border border-border"
         onScroll={handleListScroll}
         ref={listScrollRef}
       >
-        <table className={tableClassName}>
-          <thead>
-            <tr>
-              <th className={pathColumnClassName}>Path</th>
-              <th className={metaColumnClassName}>Meta</th>
-              <th>Preview</th>
-              <th className={actionColumnClassName}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className={tableClassName}>
+          <TableHeader>
+            <TableRow>
+              <TableHead className={pathColumnClassName}>Path</TableHead>
+              <TableHead className={metaColumnClassName}>Meta</TableHead>
+              <TableHead>Preview</TableHead>
+              <TableHead className={actionColumnClassName}>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((item) => (
               <ListPanelRow
                 actionTooltip={actionTooltip}
@@ -166,8 +173,8 @@ export function ListPanel({ items, onCopy, onDelete, onEdit }) {
                 typeLabel={getItemTypeLabel(item.type)}
               />
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         {hasMore && <div aria-hidden="true" className="h-2" ref={loadMoreRef} />}
       </div>
     </section>

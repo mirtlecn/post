@@ -10,6 +10,9 @@ import { IconButton } from './IconButton.jsx';
 import { ListPanel } from './ListPanel.jsx';
 import { ResultPanel } from './ResultPanel.jsx';
 import { ToastLayer } from './ToastLayer.jsx';
+import { Button } from './ui/button.jsx';
+import { Card, CardContent } from './ui/card.jsx';
+import { Skeleton } from './ui/skeleton.jsx';
 
 export function Dashboard({ onLogout }) {
   const [items, setItems] = useState([]);
@@ -143,54 +146,58 @@ export function Dashboard({ onLogout }) {
 
   return (
     <section className="dashboard-shell mx-auto max-w-6xl px-5 py-6">
-      <header className="panel-box mb-6 flex items-center justify-between">
-        <button className="dashboard-title text-5xl font-black" onClick={refreshPage} type="button">
-          Post
-        </button>
-        <div className="flex gap-2">
-          <IconButton icon={icons.close} onClick={resetDashboard} title="Clear" />
-          <IconButton className="text-error hover:bg-error/10" icon={icons.logout} onClick={onLogout} title="Logout" />
-        </div>
-      </header>
+      <Card className="mb-6">
+        <CardContent className="flex items-center justify-between">
+          <Button className="dashboard-title h-auto p-0 text-5xl font-black" onClick={refreshPage} type="button" variant="ghost">
+            Post
+          </Button>
+          <div className="flex gap-2">
+            <IconButton icon={icons.close} onClick={resetDashboard} title="Clear" />
+            <IconButton className="text-destructive hover:bg-destructive/10" icon={icons.logout} onClick={onLogout} title="Logout" />
+          </div>
+        </CardContent>
+      </Card>
       {result ? (
         <div className="mb-6">
           <ResultPanel onCopy={copy} result={result} />
         </div>
       ) : null}
-      <section className="panel-box dashboard-main-card grid gap-6">
-        <CreatePanel
-          notify={showToast}
-          editRequest={editRequest}
-          editLoading={Boolean(editLoadingPath)}
-          onCreated={created}
-          onFilterChange={handleComposerFilterChange}
-          resetRequestId={resetRequestId}
-          selectedTopicPath={selectedTopicPath}
-          onTopicChange={handleTopicChange}
-          topics={topics}
-        />
-        {itemsLoading ? (
-          <section className="pt-2">
-            <div className="mb-4 h-5 w-24 skeleton" />
-            <div className="rounded-[1.5rem] border border-base-300/70 p-4">
-              <div className="mb-4 grid grid-cols-5 gap-4">
-                <div className="h-5 skeleton" />
-                <div className="h-5 skeleton" />
-                <div className="h-5 skeleton" />
-                <div className="h-5 skeleton" />
-                <div className="h-5 skeleton" />
+      <Card className="dashboard-main-card">
+        <CardContent className="grid gap-6">
+          <CreatePanel
+            notify={showToast}
+            editRequest={editRequest}
+            editLoading={Boolean(editLoadingPath)}
+            onCreated={created}
+            onFilterChange={handleComposerFilterChange}
+            resetRequestId={resetRequestId}
+            selectedTopicPath={selectedTopicPath}
+            onTopicChange={handleTopicChange}
+            topics={topics}
+          />
+          {itemsLoading ? (
+            <section className="pt-2">
+              <Skeleton className="mb-4 h-5 w-24" />
+              <div className="rounded-lg border border-border p-4">
+                <div className="mb-4 grid grid-cols-5 gap-4">
+                  <Skeleton className="h-5" />
+                  <Skeleton className="h-5" />
+                  <Skeleton className="h-5" />
+                  <Skeleton className="h-5" />
+                  <Skeleton className="h-5" />
+                </div>
+                <div className="space-y-3">
+                  <Skeleton className="h-14" />
+                  <Skeleton className="h-14" />
+                  <Skeleton className="h-14" />
+                </div>
               </div>
-              <div className="space-y-3">
-                <div className="h-14 skeleton" />
-                <div className="h-14 skeleton" />
-                <div className="h-14 skeleton" />
-              </div>
-            </div>
-          </section>
-        ) : (
-          filteredItems.length > 0 && <ListPanel items={filteredItems} key={listResetKey} onCopy={copy} onDelete={remove} onEdit={edit} />
-        )}
-      </section>
+            </section>
+          ) : (
+            filteredItems.length > 0 && <ListPanel items={filteredItems} key={listResetKey} onCopy={copy} onDelete={remove} onEdit={edit} />
+          )}
+        </CardContent>
+      </Card>
       <ToastLayer onClose={clearToast} toast={toast} />
     </section>
   );

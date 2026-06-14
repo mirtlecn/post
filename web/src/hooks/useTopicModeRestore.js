@@ -15,7 +15,7 @@ export function useTopicModeRestore({ composer, metaOpen, setMetaOpen, clearNati
   }
 
   function onConvertSelect(nextConvert, closeMenu) {
-    closeMenu();
+    closeMenu?.();
 
     if (nextConvert === TOPIC_CREATE_TYPE) {
       if (!composer.isTopicMode) {

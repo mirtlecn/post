@@ -4,7 +4,6 @@ import { ComposerMetaFields } from './ComposerMetaFields.jsx';
 import { ComposerToolbar } from './ComposerToolbar.jsx';
 import { useComposer } from '../hooks/useComposer.js';
 import { useComposerDragAndPaste } from '../hooks/useComposerDragAndPaste.js';
-import { useComposerMenu } from '../hooks/useComposerMenu.js';
 import { useTopicModeRestore } from '../hooks/useTopicModeRestore.js';
 import { formatTopicLabel, getComposerUiState, resolveTtlMinutes } from '../lib/composer-mode.js';
 
@@ -14,10 +13,8 @@ export function CreatePanel(props) {
   const [metaOpen, setMetaOpen] = useState(() => Boolean(props.initialMetaOpen));
   const [ttlFocused, setTtlFocused] = useState(false);
   const panelRef = useRef(null);
-  const topicRef = useRef(null);
   const createdDateRef = useRef(null);
   const createdTimeRef = useRef(null);
-  const menu = useComposerMenu();
   const dragAndPaste = useComposerDragAndPaste({
     disabled: composer.isTopicMode || props.editLoading,
     onSelectFile: composer.setFile,
@@ -74,7 +71,6 @@ export function CreatePanel(props) {
     setMetaOpen(false);
     setTtlFocused(false);
     setTopicOpen(false);
-    menu.setMenuOpen(false);
     topicMode.clearTopicModeSnapshot();
     dragAndPaste.clearSelectedFile();
   }, [props.resetRequestId]);
@@ -132,19 +128,14 @@ export function CreatePanel(props) {
     dragAndPaste.clearSelectedFile();
   }
 
-  function onTopicChange(event) {
+  function onTopicChange(nextTopicPath) {
     if (composer.isTopicMode) return;
 
-    const nextTopicPath = event.target.value;
     if (nextTopicPath) setMetaOpen(true);
     composer.updateTopic(nextTopicPath);
     props.onFilterChange?.({ path: '' });
     props.onTopicChange?.(nextTopicPath);
-    requestAnimationFrame(() => {
-      setTopicOpen(false);
-      const select = topicRef.current;
-      if (select && document.activeElement === select) select.blur();
-    });
+    setTopicOpen(false);
   }
 
   async function onSubmit(event) {
@@ -157,7 +148,7 @@ export function CreatePanel(props) {
 
   function onConvertSelect(nextConvert) {
     const restoredSnapshot = composer.isTopicMode ? topicMode.topicModeSnapshot : null;
-    topicMode.onConvertSelect(nextConvert, () => menu.setMenuOpen(false));
+    topicMode.onConvertSelect(nextConvert);
 
     if (nextConvert === 'topic') {
       props.onFilterChange?.({ path: '', ttl: '', type: nextConvert });
@@ -178,7 +169,7 @@ export function CreatePanel(props) {
 
   return (
     <section className="composer-panel" ref={panelRef}>
-      <div className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">New</div>
+      <div className="section-label mb-4">New</div>
       <form className="grid gap-3 animate-fade-up" onSubmit={onSubmit}>
         <ComposerEditor
           contentValue={composer.form.content}
@@ -227,19 +218,12 @@ export function CreatePanel(props) {
           fileMode={composer.isFileMode}
           form={composer.form}
           isTopicMode={composer.isTopicMode}
-          menuButtonRef={menu.menuButtonRef}
-          menuOpen={menu.menuOpen}
-          menuPanelRef={menu.menuPanelRef}
-          menuPosition={menu.menuPosition}
-          menuRef={menu.menuRef}
           onConvertSelect={onConvertSelect}
           onPathBlur={() => props.onFilterChange?.({ path: composer.form.path })}
           onPathChange={composer.updatePath}
           pathLocked={composer.fileEditMode}
-          onTopicBlur={() => setTopicOpen(false)}
           onTopicChange={onTopicChange}
-          onTopicFocus={() => setTopicOpen(true)}
-          onTopicPointerDown={() => setTopicOpen(true)}
+          onTopicOpenChange={setTopicOpen}
           onTtlBlur={() => {
             setTtlFocused(false);
             const ttl = resolveTtlMinutes(composer.form.ttl);
@@ -250,10 +234,8 @@ export function CreatePanel(props) {
           pathInputVisible={pathInputVisible}
           pathPlaceholder={pathPlaceholder}
           selectedTopicLabel={topicPrefixLabelBody}
-          setMenuOpen={menu.setMenuOpen}
           topicOpen={topicOpen}
           topicPrefix={topicPrefix}
-          topicRef={topicRef}
           topics={props.topics}
           ttlDisabled={ttlDisabled}
         />

@@ -1,4 +1,7 @@
 import { icons } from '../icons/Icons.jsx';
+import { Button } from './ui/button.jsx';
+import { Input } from './ui/input.jsx';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip.jsx';
 
 export function ComposerMetaFields({
   createdDateRef,
@@ -24,8 +27,8 @@ export function ComposerMetaFields({
           <>
             <div className="composer-meta-field composer-meta-field-title">
               <span className="composer-meta-label">Title:</span>
-              <input
-                className="input input-ghost composer-meta-inline-input"
+              <Input
+                className="composer-meta-inline-input"
                 maxLength={120}
                 onChange={(event) => onTitleChange(event.target.value)}
                 placeholder=""
@@ -35,16 +38,16 @@ export function ComposerMetaFields({
             <div className="composer-meta-field composer-meta-field-created" onClick={onOpenCreatedPicker}>
               <span className="composer-meta-label">Created:</span>
               <div className={`composer-created-inputs ${createdDateValue ? '' : 'composer-created-inputs-empty'}`}>
-                <input
-                  className="input input-ghost composer-created-input composer-created-date"
+                <Input
+                  className="composer-created-input composer-created-date"
                   onChange={(event) => onCreatedDateChange(event.target.value)}
                   ref={createdDateRef}
                   type="date"
                   value={createdDateValue}
                 />
                 {createdDateValue ? (
-                  <input
-                    className="input input-ghost composer-created-input composer-created-time"
+                  <Input
+                    className="composer-created-input composer-created-time"
                     onChange={(event) => onCreatedTimeChange(event.target.value)}
                     ref={createdTimeRef}
                     step={60}
@@ -58,19 +61,24 @@ export function ComposerMetaFields({
         ) : null}
       </div>
       {showMetaToggle ? (
-        <div className="tooltip tooltip-left tooltip-layer composer-meta-tooltip" data-tip={metaVisible ? 'Hide' : 'Add meta info'}>
-          <button
-            className={`btn btn-ghost btn-xs composer-meta-icon ${metaVisible ? 'composer-meta-icon-open' : ''}`}
-            onClick={onToggleMeta}
-            type="button"
-          >
-            {metaVisible ? (
-              <TitleCollapseIcon className="size-[0.95rem]" strokeWidth={1.9} />
-            ) : (
-              <TitleIcon className="size-[0.95rem]" strokeWidth={1.9} />
-            )}
-          </button>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              className={`composer-meta-tooltip composer-meta-icon ${metaVisible ? 'composer-meta-icon-open' : ''}`}
+              onClick={onToggleMeta}
+              size="icon-xs"
+              type="button"
+              variant="ghost"
+            >
+              {metaVisible ? (
+                <TitleCollapseIcon className="size-[0.95rem]" strokeWidth={1.9} />
+              ) : (
+                <TitleIcon className="size-[0.95rem]" strokeWidth={1.9} />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">{metaVisible ? 'Hide' : 'Add meta info'}</TooltipContent>
+        </Tooltip>
       ) : null}
     </>
   );
