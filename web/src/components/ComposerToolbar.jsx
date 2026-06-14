@@ -65,40 +65,32 @@ export function ComposerToolbar({
   return (
     <div className="toolbar-grid">
       <div className="field-shell field-shell-fixed">
-        {topicControlLocked ? (
-          <span
-            aria-disabled="true"
-            className="path-prefix-shell path-prefix-shell-disabled"
+        <Select
+          disabled={topicControlLocked}
+          onOpenChange={onTopicOpenChange}
+          onValueChange={(value) => onTopicChange(normalizeTopicValue(value))}
+          value={getTopicValue(form.topic)}
+        >
+          <SelectTrigger
+            aria-label="Topic"
+            className={cn(
+              'path-prefix-select-trigger',
+              form.topic && 'path-prefix-select-trigger-topic',
+              topicOpen && !topicControlLocked && 'path-prefix-select-trigger-open',
+            )}
             title={topicLabel}
           >
-            {topicLabel}
-          </span>
-        ) : (
-          <Select
-            onOpenChange={onTopicOpenChange}
-            onValueChange={(value) => onTopicChange(normalizeTopicValue(value))}
-            value={getTopicValue(form.topic)}
-          >
-            <SelectTrigger
-              aria-label="Topic"
-              className={cn(
-                'path-prefix-select-trigger',
-                form.topic && 'path-prefix-select-trigger-topic',
-                topicOpen && 'path-prefix-select-trigger-open',
-              )}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="start" position="popper">
-              <SelectItem value={ROOT_TOPIC_VALUE}>/</SelectItem>
-              {topics.map((topic) => (
-                <SelectItem key={topic.path} value={topic.path}>
-                  {formatTopicLabel(topic.path)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="start" position="popper">
+            <SelectItem value={ROOT_TOPIC_VALUE}>/</SelectItem>
+            {topics.map((topic) => (
+              <SelectItem key={topic.path} value={topic.path}>
+                {formatTopicLabel(topic.path)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {pathInputVisible ? (
           <Input
             className="field-input path-input"
