@@ -19,6 +19,7 @@ export function Dashboard({ onLogout }) {
   const [result, setResult] = useState(null);
   const [selectedTopicPath, setSelectedTopicPath] = useState('');
   const [composerFilters, setComposerFilters] = useState({ path: '', ttl: '', type: 'none' });
+  const [composerHasDraft, setComposerHasDraft] = useState(false);
   const [editRequest, setEditRequest] = useState(null);
   const [editLoadingPath, setEditLoadingPath] = useState('');
   const [resetRequestId, setResetRequestId] = useState(0);
@@ -101,6 +102,7 @@ export function Dashboard({ onLogout }) {
     setResult(null);
     setSelectedTopicPath('');
     setComposerFilters({ path: '', ttl: '', type: 'none' });
+    setComposerHasDraft(false);
     setEditRequest(null);
     setEditLoadingPath('');
     setResetRequestId((currentId) => currentId + 1);
@@ -143,6 +145,17 @@ export function Dashboard({ onLogout }) {
     setComposerFilters((currentFilters) => ({ ...currentFilters, ...nextFilters }));
   }, []);
 
+  const showClearButton = Boolean(
+    result ||
+    selectedTopicPath ||
+    composerHasDraft ||
+    editRequest ||
+    editLoadingPath ||
+    composerFilters.path ||
+    composerFilters.ttl ||
+    composerFilters.type !== 'none'
+  );
+
   return (
     <section className="dashboard-shell mx-auto max-w-6xl px-5 py-6">
       <Card className="mb-6">
@@ -160,7 +173,7 @@ export function Dashboard({ onLogout }) {
           </div>
           <CardAction className="self-center">
             <div className="flex gap-2">
-              <IconButton icon={icons.close} onClick={resetDashboard} title="Clear" />
+              {showClearButton ? <IconButton icon={icons.close} onClick={resetDashboard} title="Clear" /> : null}
               <IconButton
                 className="text-destructive hover:bg-destructive/10"
                 icon={icons.logout}
@@ -183,6 +196,7 @@ export function Dashboard({ onLogout }) {
             editRequest={editRequest}
             editLoading={Boolean(editLoadingPath)}
             onCreated={created}
+            onDraftChange={setComposerHasDraft}
             onFilterChange={handleComposerFilterChange}
             resetRequestId={resetRequestId}
             selectedTopicPath={selectedTopicPath}

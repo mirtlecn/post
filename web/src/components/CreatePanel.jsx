@@ -63,6 +63,12 @@ export function CreatePanel(props) {
   }, [composer.form.convert, props.onModeChange]);
 
   useEffect(() => {
+    props.onDraftChange?.(composer.hasDraft);
+  }, [composer.hasDraft, props.onDraftChange]);
+
+  useEffect(() => () => props.onDraftChange?.(false), [props.onDraftChange]);
+
+  useEffect(() => {
     if (!composer.isTopicMode) return;
     setTtlFocused(false);
   }, [composer.isTopicMode]);

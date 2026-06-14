@@ -37,6 +37,22 @@ function getExistingFileMeta(existingFile) {
   };
 }
 
+function hasComposerDraft({ file, existingFile, fileEditMode, form, pendingOverwrite }) {
+  return Boolean(
+    file ||
+    existingFile ||
+    fileEditMode ||
+    pendingOverwrite ||
+    form.convert !== 'none' ||
+    form.path.trim() ||
+    form.title.trim() ||
+    form.createdDate ||
+    form.createdTime ||
+    form.ttl.trim() ||
+    form.content.trim()
+  );
+}
+
 export function useComposer({ notify, onCreated, selectedTopicPath = '', topics = [] }) {
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState(null);
@@ -227,6 +243,7 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     [form.topic, topics],
   );
   const canSubmit = canSubmitComposerForm({ busy, existingFile, file, fileEditMode, form });
+  const hasDraft = hasComposerDraft({ file, existingFile, fileEditMode, form, pendingOverwrite });
   const isFileMode = Boolean(file || existingFile || fileEditMode);
 
   return {
@@ -241,6 +258,7 @@ export function useComposer({ notify, onCreated, selectedTopicPath = '', topics 
     fileEditMode,
     fileMeta,
     form,
+    hasDraft,
     isFileMode,
     isTopicMode,
     selectedTopic,
