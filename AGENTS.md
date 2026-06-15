@@ -32,26 +32,6 @@ Default admin URL:
 http://localhost:3000/admin
 ```
 
-## Environment
-
-Required variables for normal app startup:
-
-- `LINKS_REDIS_URL`
-- `SECRET_KEY`
-
-Optional:
-
-- `ADMIN_KEY`
-- `MAX_CONTENT_SIZE_KB`
-- `MAX_FILE_SIZE_MB`
-- `S3_ENDPOINT`
-- `S3_ACCESS_KEY_ID`
-- `S3_SECRET_ACCESS_KEY`
-- `S3_BUCKET_NAME`
-- `S3_REGION`
-
-For `/admin`, login uses `ADMIN_KEY` when set, otherwise `SECRET_KEY`.
-
 ## Code Map
 
 ### Backend
@@ -123,25 +103,6 @@ Notes:
   - helper tests
   - any smoke coverage that validates the same external behavior
   - README if developer-facing commands or workflows changed
-
-## Debugging Tips
-
-- If a create/list/delete flow looks wrong, inspect:
-  - `lib/handlers/create.js`
-  - `lib/handlers/list.js`
-  - `lib/utils/storage.js`
-- If admin UI submission looks wrong, inspect:
-  - `web/src/hooks/useComposer.js`
-  - `web/src/lib/composer-mode.js`
-  - `web/src/components/CreatePanel.jsx`
-- If smoke tests hang inside a sandboxed environment, rerun outside the sandbox before assuming the script logic is broken. This repo's local smoke scripts start nested long-lived processes (`npm start`), which can expose sandbox process-management issues.
-- Vercel smoke is more sensitive to sandbox process and watcher behavior than local smoke. Prefer the escalated `npm run test:vercel` path first.
-
-## Git Expectations
-
-- Use Conventional Commits.
-- Commit only after the related tests pass.
-- Do not revert unrelated user changes.
 
 ## Release Process
 

@@ -1,14 +1,14 @@
-![Logo](logo.webp)
+![Logo](assets/logo_new.png)
 
 [Go version API server](https://github.com/mirtlecn/post-go) | [CLI client](https://github.com/mirtlecn/post-cli) | [Skills for AI Agents](https://github.com/mirtlecn/post-cli/tree/master/skills)
 
-# Post — Lightweight File, Text & URL Sharing API & Web UI
+# Post: Redis Based Lightweight CMS and Content Sharing API Service
 
 ## Web UI
 
 Available at <http://localhost:3000/admin>.
 
-![Web UI Screenshot](gui.webp)
+![Web UI Screenshot](assets/gui_new.jpg)
 
 ## HTTP API
 
