@@ -3,11 +3,9 @@ import { LoginView } from './components/LoginView.jsx';
 import { Dashboard } from './components/Dashboard.jsx';
 import { TooltipProvider } from './components/ui/tooltip.jsx';
 import { useSession } from './hooks/useSession.js';
-import { useThemeMode } from './hooks/useThemeMode.js';
 
 export default function App() {
   const session = useSession();
-  useThemeMode();
 
   return (
     <TooltipProvider>
