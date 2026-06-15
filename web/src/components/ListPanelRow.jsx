@@ -102,7 +102,7 @@ export function ListPanelRow({
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <AlertDialogContent size="sm">
+          <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this item?</AlertDialogTitle>
               <AlertDialogDescription>

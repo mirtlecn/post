@@ -240,7 +240,7 @@ export function CreatePanel(props) {
           if (!open) composer.cancelOverwrite();
         }}
       >
-        <AlertDialogContent size="sm">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Overwrite this item?</AlertDialogTitle>
             <AlertDialogDescription>
