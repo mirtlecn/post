@@ -2,6 +2,9 @@ import { LIST_BATCH_SIZE } from '../config.js';
 
 export function getItemTypeLabel(type) {
   switch (type) {
+    case 'md':
+    case 'md2html':
+    case 'qrcode':
     case 'text':
     case 'file':
     case 'html':
@@ -10,6 +13,27 @@ export function getItemTypeLabel(type) {
       return type;
     default:
       return type || 'text';
+  }
+}
+
+export function getItemTypeIconKey(type) {
+  switch (type) {
+    case 'file':
+      return 'fileType';
+    case 'html':
+      return 'globe';
+    case 'md':
+    case 'md2html':
+      return 'textInitial';
+    case 'qrcode':
+      return 'qrcode';
+    case 'topic':
+      return 'folderTree';
+    case 'url':
+      return 'link';
+    case 'text':
+    default:
+      return 'text';
   }
 }
 

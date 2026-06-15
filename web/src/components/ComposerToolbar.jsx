@@ -17,9 +17,9 @@ const PATH_PATTERN = '[A-Za-z0-9_.\\/\\(\\)\\-]{1,99}';
 const ROOT_TOPIC_VALUE = '__root__';
 const CONVERT_OPTIONS = [
   { value: 'none', label: 'auto type', icon: icons.sparkles },
-  { value: 'md2html', label: 'md2html', icon: icons.fileCode },
+  { value: 'md2html', label: 'md2html', icon: icons.textInitial },
   { value: 'qrcode', label: 'qrcode', icon: icons.qrcode },
-  { value: 'html', label: 'html', icon: icons.fileBadge },
+  { value: 'html', label: 'html', icon: icons.globe },
   { value: 'url', label: 'url', icon: icons.link },
   { value: 'text', label: 'text', icon: icons.text },
   { value: TOPIC_CREATE_TYPE, label: 'topic', icon: icons.folderTree, separated: true },
@@ -57,7 +57,7 @@ export function ComposerToolbar({
   ttlDisabled,
 }) {
   const BusyIcon = icons.refresh;
-  const FileBadgeIcon = icons.fileBadge;
+  const FileTypeIcon = icons.fileType;
   const TtlIcon = icons.clock;
   const topicControlLocked = isTopicMode || pathLocked;
   const topicLabel = formatTopicLabel(form.topic);
@@ -135,7 +135,7 @@ export function ComposerToolbar({
       </div>
       {fileMode ? (
         <div className="field-shell field-shell-fixed">
-          <FileBadgeIcon className="size-4 text-muted-foreground" strokeWidth={2} />
+          <FileTypeIcon className="size-4 text-muted-foreground" strokeWidth={2} />
           <Input className="field-input" disabled readOnly value="file" />
         </div>
       ) : (

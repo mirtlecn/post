@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { icons } from '../icons/Icons.jsx';
+import { getItemTypeIconKey } from '../lib/list-panel.js';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,27 +17,10 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu.jsx';
 import { TableCell, TableRow } from './ui/table.jsx';
-
-function getTypeIcon(typeLabel) {
-  switch (typeLabel) {
-    case 'file':
-      return icons.fileBadge;
-    case 'html':
-      return icons.fileCode;
-    case 'topic':
-      return icons.folderTree;
-    case 'url':
-      return icons.link;
-    case 'text':
-    default:
-      return icons.text;
-  }
-}
 
 export function ListPanelRow({
   copiedPath,
@@ -52,7 +36,7 @@ export function ListPanelRow({
   metaColumnClassName,
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const TypeIcon = getTypeIcon(typeLabel);
+  const TypeIcon = icons[getItemTypeIconKey(item.type)];
   const MoreIcon = icons.more;
   const EditIcon = icons.edit;
   const OpenIcon = icons.open;
@@ -95,7 +79,6 @@ export function ListPanelRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem onSelect={() => onEdit(item)}>
                   <EditIcon />

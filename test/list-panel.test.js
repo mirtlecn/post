@@ -5,6 +5,7 @@ import {
   buildVisibleListItems,
   formatCreatedLabel,
   formatTtlLabel,
+  getItemTypeIconKey,
   getItemTypeLabel,
 } from '../web/src/lib/list-panel.js';
 
@@ -22,9 +23,22 @@ test('formatCreatedLabel keeps illegal and formats valid dates', () => {
 });
 
 test('getItemTypeLabel falls back to text metadata', () => {
+  assert.equal(getItemTypeLabel('md'), 'md');
+  assert.equal(getItemTypeLabel('qrcode'), 'qrcode');
   assert.equal(getItemTypeLabel('topic'), 'topic');
   assert.equal(getItemTypeLabel('custom'), 'custom');
   assert.equal(getItemTypeLabel(''), 'text');
+});
+
+test('getItemTypeIconKey matches composer type icons', () => {
+  assert.equal(getItemTypeIconKey('md'), 'textInitial');
+  assert.equal(getItemTypeIconKey('md2html'), 'textInitial');
+  assert.equal(getItemTypeIconKey('qrcode'), 'qrcode');
+  assert.equal(getItemTypeIconKey('html'), 'globe');
+  assert.equal(getItemTypeIconKey('file'), 'fileType');
+  assert.equal(getItemTypeIconKey('topic'), 'folderTree');
+  assert.equal(getItemTypeIconKey('url'), 'link');
+  assert.equal(getItemTypeIconKey(''), 'text');
 });
 
 test('buildVisibleListItems decorates rows and reports remaining items', () => {

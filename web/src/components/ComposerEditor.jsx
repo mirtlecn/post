@@ -28,7 +28,7 @@ export function ComposerEditor({
   textareaRef,
 }) {
   const CloseIcon = icons.close;
-  const FileBadgeIcon = icons.fileBadge;
+  const FileTypeIcon = icons.fileType;
   const LoadingIcon = icons.refresh;
   const UploadIcon = icons.file;
   const fileMetaItems = fileMeta?.metaItems || [fileMeta?.size, 'File'].filter(Boolean);
@@ -55,7 +55,7 @@ export function ComposerEditor({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button className="file-card-icon-button" onClick={onClearSelectedFile} type="button" variant="secondary">
-                  <FileBadgeIcon className="file-card-icon file-card-icon-file size-5" strokeWidth={2.1} />
+                  <FileTypeIcon className="file-card-icon file-card-icon-file size-5" strokeWidth={2.1} />
                   <CloseIcon className="file-card-icon file-card-icon-remove size-5" strokeWidth={2.1} />
                   </Button>
                 </TooltipTrigger>
