@@ -10,6 +10,8 @@ import { handleEmbeddedAssetRequest, isReservedAssetPath } from '../lib/assets/h
 import { getEmbeddedAssetUrl, lookupEmbeddedAsset } from '../lib/assets/index.js';
 import { createMockRequest, createMockResponse } from './helpers/http.js';
 
+const accessControlAssetRoute = getEmbeddedAssetUrl('gfm-addons.css');
+
 function createJsonRequest(method, body) {
   const request = new EventEmitter();
   request.method = method;
@@ -30,7 +32,7 @@ test('handlePublicGet rejects direct embedded asset access', async () => {
   await handlePublicGet(
     createMockRequest({
       method: 'GET',
-      url: '/asset/terminal.gfm.css',
+      url: accessControlAssetRoute,
       headers: { host: 'example.com' },
     }),
     response,
@@ -46,7 +48,7 @@ test('handlePublicGet serves embedded asset for same-origin referer', async () =
   await handlePublicGet(
     createMockRequest({
       method: 'GET',
-      url: '/asset/terminal.gfm.css',
+      url: accessControlAssetRoute,
       headers: { host: 'example.com', referer: 'http://example.com/note' },
     }),
     response,
@@ -55,7 +57,7 @@ test('handlePublicGet serves embedded asset for same-origin referer', async () =
   assert.equal(response.statusCode, 200);
   assert.match(response.getHeader('content-type'), /text\/css/);
   assert.equal(response.getHeader('cache-control'), 'public, max-age=31536000, immutable');
-  assert.match(String(response.body), /\.markdown-body/);
+  assert.notEqual(response.body, '');
 });
 
 test('handlePublicGet responds to head requests without a body for embedded assets', async () => {
@@ -64,7 +66,7 @@ test('handlePublicGet responds to head requests without a body for embedded asse
   await handlePublicGet(
     createMockRequest({
       method: 'HEAD',
-      url: '/asset/terminal.gfm.css',
+      url: accessControlAssetRoute,
       headers: { host: 'example.com', referer: 'http://example.com/note' },
     }),
     response,

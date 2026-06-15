@@ -18,11 +18,11 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$ROOT_DIR"
-redis-cli -n "$REDIS_DB" FLUSHDB >/dev/null
+reset_test_redis
 
 echo "[vercel] 启动 vercel dev"
 env \
-  "LINKS_REDIS_URL=redis://localhost:6379/$REDIS_DB" \
+  "LINKS_REDIS_URL=$(redis_test_url)" \
   "SECRET_KEY=$SECRET_KEY" \
   "ADMIN_KEY=${ADMIN_KEY:-$SECRET_KEY}" \
   "FOOTER=${FOOTER:-}" \

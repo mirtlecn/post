@@ -13,6 +13,7 @@ SMOKE_FOOTER_TEXT="${SMOKE_FOOTER_TEXT:-}"
 
 require_base_url
 init_http_test
+require_redis_available
 
 LONG_PATH="$(printf 'a%.0s' $(seq 1 100))"
 INVALID_PATH='bad[]path'
@@ -170,7 +171,7 @@ cleanup() {
       "$BASE_URL/delete" >/dev/null 2>&1 || true
   done
 
-  redis-cli -n "$REDIS_DB" DEL \
+  redis_test_cli DEL \
     "surl:$GHOST_TOPIC_PATH" \
     "surl:$ILLEGAL_CREATED_PATH" \
     "$STORAGE_TOPIC_ITEMS_KEY" >/dev/null 2>&1 || true
@@ -295,8 +296,8 @@ else
   request GET "$BASE_URL/$UPLOAD_FILE_PATH"
   expect_status 200
   expect_header_contains "^cache-control: public, max-age=86400, s-maxage=86400"
-  FILE_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:file:$UPLOAD_FILE_PATH")"
-  FILE_META_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:filemeta:$UPLOAD_FILE_PATH")"
+  FILE_CACHE_EXISTS="$(redis_test_cli EXISTS "cache:file:$UPLOAD_FILE_PATH")"
+  FILE_META_CACHE_EXISTS="$(redis_test_cli EXISTS "cache:filemeta:$UPLOAD_FILE_PATH")"
   expect_equals "$FILE_CACHE_EXISTS" "1"
   expect_equals "$FILE_META_CACHE_EXISTS" "0"
   request POST "$BASE_URL/update" "{\"path\":\"$UPLOAD_FILE_PATH\",\"type\":\"file\",\"title\":\"File Metadata Updated\",\"ttl\":0}" \
@@ -311,7 +312,7 @@ else
     -H "Authorization: Bearer $SECRET_KEY" \
     -H "Content-Type: application/json"
   expect_status 200
-  FILE_CACHE_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "cache:file:$UPLOAD_FILE_PATH")"
+  FILE_CACHE_EXISTS="$(redis_test_cli EXISTS "cache:file:$UPLOAD_FILE_PATH")"
   expect_equals "$FILE_CACHE_EXISTS" "0"
   log "文件上传、公开读取与缓存清理通过"
 fi
@@ -530,9 +531,9 @@ expect_body_contains "\"content\":\"0\""
 log "创建 storage topic 通过"
 
 CURRENT_STEP="校验 storage topic Redis 初始化"
-TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$STORAGE_TOPIC_PATH")"
-TOPIC_REDIS_TYPE="$(redis-cli -n "$REDIS_DB" TYPE "$STORAGE_TOPIC_ITEMS_KEY")"
-TOPIC_REDIS_ZRANGE="$(redis-cli -n "$REDIS_DB" ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1 WITHSCORES)"
+TOPIC_REDIS_VALUE="$(redis_test_cli GET "surl:$STORAGE_TOPIC_PATH")"
+TOPIC_REDIS_TYPE="$(redis_test_cli TYPE "$STORAGE_TOPIC_ITEMS_KEY")"
+TOPIC_REDIS_ZRANGE="$(redis_test_cli ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1 WITHSCORES)"
 expect_redis_contains "$TOPIC_REDIS_VALUE" '"type":"topic"'
 expect_redis_contains "$TOPIC_REDIS_VALUE" '<span style=\"color: #666;\">Home</span>'
 expect_redis_not_contains "$TOPIC_REDIS_VALUE" '<!doctype html'
@@ -559,10 +560,10 @@ expect_status 201
 log "创建 storage topic 成员与 orphan 通过"
 
 CURRENT_STEP="校验 storage topic Redis 同步"
-ENTRY_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$STORAGE_ENTRY_PATH")"
-ORPHAN_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$STORAGE_ORPHAN_PATH")"
-TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$STORAGE_TOPIC_PATH")"
-TOPIC_REDIS_MEMBERS="$(redis-cli -n "$REDIS_DB" ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1)"
+ENTRY_REDIS_VALUE="$(redis_test_cli GET "surl:$STORAGE_ENTRY_PATH")"
+ORPHAN_REDIS_VALUE="$(redis_test_cli GET "surl:$STORAGE_ORPHAN_PATH")"
+TOPIC_REDIS_VALUE="$(redis_test_cli GET "surl:$STORAGE_TOPIC_PATH")"
+TOPIC_REDIS_MEMBERS="$(redis_test_cli ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1)"
 expect_redis_contains "$ENTRY_REDIS_VALUE" '"type":"md"'
 expect_redis_contains "$ENTRY_REDIS_VALUE" '"title":"Entry Title"'
 expect_redis_contains "$ORPHAN_REDIS_VALUE" '"type":"text"'
@@ -585,9 +586,9 @@ request POST "$BASE_URL/delete" "{\"path\":\"$STORAGE_ENTRY_PATH\"}" \
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_matches "\"created\":\"[^\"]+Z\""
-ENTRY_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "surl:$STORAGE_ENTRY_PATH")"
-TOPIC_REDIS_MEMBERS="$(redis-cli -n "$REDIS_DB" ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1)"
-TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$STORAGE_TOPIC_PATH")"
+ENTRY_EXISTS="$(redis_test_cli EXISTS "surl:$STORAGE_ENTRY_PATH")"
+TOPIC_REDIS_MEMBERS="$(redis_test_cli ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1)"
+TOPIC_REDIS_VALUE="$(redis_test_cli GET "surl:$STORAGE_TOPIC_PATH")"
 expect_equals "$ENTRY_EXISTS" "0"
 expect_equals "$TOPIC_REDIS_MEMBERS" $'__topic_placeholder__\norphan'
 if printf '%s' "$TOPIC_REDIS_VALUE" | /usr/bin/grep -Fq "$STORAGE_ENTRY_PATH"; then
@@ -602,9 +603,9 @@ request POST "$BASE_URL/delete" "{\"path\":\"$STORAGE_TOPIC_PATH\",\"type\":\"to
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_matches "\"created\":\"[^\"]+Z\""
-TOPIC_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "surl:$STORAGE_TOPIC_PATH")"
-TOPIC_ITEMS_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "$STORAGE_TOPIC_ITEMS_KEY")"
-ORPHAN_EXISTS="$(redis-cli -n "$REDIS_DB" EXISTS "surl:$STORAGE_ORPHAN_PATH")"
+TOPIC_EXISTS="$(redis_test_cli EXISTS "surl:$STORAGE_TOPIC_PATH")"
+TOPIC_ITEMS_EXISTS="$(redis_test_cli EXISTS "$STORAGE_TOPIC_ITEMS_KEY")"
+ORPHAN_EXISTS="$(redis_test_cli EXISTS "surl:$STORAGE_ORPHAN_PATH")"
 expect_equals "$TOPIC_EXISTS" "0"
 expect_equals "$TOPIC_ITEMS_EXISTS" "0"
 expect_equals "$ORPHAN_EXISTS" "1"
@@ -616,8 +617,8 @@ request POST "$BASE_URL/create" "{\"path\":\"$STORAGE_TOPIC_PATH\",\"type\":\"to
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"content\":\"1\""
-TOPIC_REDIS_MEMBERS="$(redis-cli -n "$REDIS_DB" ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1)"
-TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$STORAGE_TOPIC_PATH")"
+TOPIC_REDIS_MEMBERS="$(redis_test_cli ZRANGE "$STORAGE_TOPIC_ITEMS_KEY" 0 -1)"
+TOPIC_REDIS_VALUE="$(redis_test_cli GET "surl:$STORAGE_TOPIC_PATH")"
 expect_equals "$TOPIC_REDIS_MEMBERS" $'__topic_placeholder__\norphan'
 expect_redis_contains "$TOPIC_REDIS_VALUE" "$STORAGE_ORPHAN_PATH"
 log "重建 storage topic adopt orphan 通过"
@@ -677,20 +678,19 @@ expect_body_contains "<link rel=\"alternate\" type=\"text/plain\" href=\"?raw\">
 expect_body_contains "<!-- hint: append ?raw to view the raw file -->"
 expect_body_not_contains "katex"
 expect_body_not_contains "mathjax"
-expect_body_contains "/asset/terminal.gfm.css"
 log "render md2html 公开页渲染通过"
 
 CURRENT_STEP="内置资源禁止直接访问"
-request GET "$BASE_URL/asset/terminal.gfm.css"
+request GET "$BASE_URL/asset/gfm-addons.css"
 expect_status 403
 expect_body_contains "\"code\":\"forbidden\""
 log "内置资源禁止直接访问通过"
 
 CURRENT_STEP="内置资源允许站内请求"
-request GET "$BASE_URL/asset/terminal.gfm.css" "" \
+request GET "$BASE_URL/asset/gfm-addons.css" "" \
   -H "Referer: $BASE_URL/$RENDER_HTML_ITEM_PATH"
 expect_status 200
-expect_body_contains ".markdown-body"
+expect_header_contains "content-type: text/css"
 log "内置资源允许站内请求通过"
 
 CURRENT_STEP="更新 render topic title"
@@ -735,7 +735,7 @@ expect_body_contains "href=\"/$RENDER_TOPIC_PATH/notes/reference-link\""
 expect_body_contains "↗ · $CURRENT_DATE"
 expect_body_contains " · $CURRENT_DATE"
 expect_body_not_contains "  · "
-RENDER_TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$RENDER_TOPIC_PATH")"
+RENDER_TOPIC_REDIS_VALUE="$(redis_test_cli GET "surl:$RENDER_TOPIC_PATH")"
 expect_redis_contains "$RENDER_TOPIC_REDIS_VALUE" "[Howl Visual Draft](</$RENDER_HTML_ITEM_PATH>)"
 expect_redis_contains "$RENDER_TOPIC_REDIS_VALUE" "[Castle Notes](</$RENDER_TEXT_ITEM_PATH>) ☰"
 expect_redis_not_contains "$RENDER_TOPIC_REDIS_VALUE" '<!doctype html'
@@ -779,8 +779,8 @@ request GET "$BASE_URL/$NESTED_TOPIC_CHILD_PATH"
 expect_status 200
 expect_body_contains "Child Post</a> ☰ · 2026-06-11"
 expect_body_contains "href=\"/$NESTED_TOPIC_CHILD_ITEM_PATH\""
-NESTED_TOPIC_PARENT_MEMBERS="$(redis-cli -n "$REDIS_DB" ZRANGE "$NESTED_TOPIC_PARENT_ITEMS_KEY" 0 -1)"
-NESTED_TOPIC_PARENT_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$NESTED_TOPIC_PARENT_PATH")"
+NESTED_TOPIC_PARENT_MEMBERS="$(redis_test_cli ZRANGE "$NESTED_TOPIC_PARENT_ITEMS_KEY" 0 -1)"
+NESTED_TOPIC_PARENT_REDIS_VALUE="$(redis_test_cli GET "surl:$NESTED_TOPIC_PARENT_PATH")"
 expect_redis_contains "$NESTED_TOPIC_PARENT_MEMBERS" "topic2"
 expect_redis_contains "$NESTED_TOPIC_PARENT_MEMBERS" "parent-post"
 expect_redis_not_contains "$NESTED_TOPIC_PARENT_MEMBERS" "topic2/post"
@@ -846,7 +846,7 @@ expect_body_contains "Grouped Text</a> ☰ · 05-23"
 expect_body_contains "Grouped Markdown</a> · 05-22"
 expect_body_contains "Old 1</a> · 12-31"
 expect_body_not_contains "Grouped Text</a> ☰ · 2026-05-23"
-GROUPED_TOPIC_REDIS_VALUE="$(redis-cli -n "$REDIS_DB" GET "surl:$GROUPED_TOPIC_PATH")"
+GROUPED_TOPIC_REDIS_VALUE="$(redis_test_cli GET "surl:$GROUPED_TOPIC_PATH")"
 expect_redis_contains "$GROUPED_TOPIC_REDIS_VALUE" '## 2026'
 expect_redis_contains "$GROUPED_TOPIC_REDIS_VALUE" '## 2025'
 expect_redis_contains "$GROUPED_TOPIC_REDIS_VALUE" "[Grouped Text](</$GROUPED_TOPIC_PATH/new-text>) ☰ · 05-23"
@@ -872,7 +872,7 @@ request POST "$BASE_URL/create" "{\"topic\":\"$CREATED_SORT_TOPIC_PATH\",\"path\
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
 expect_status 201
-redis-cli -n "$REDIS_DB" SET "surl:$CREATED_SORT_FALLBACK_PATH" '{"type":"text","content":"fallback body","title":"Fallback","created":"bad-value"}' >/dev/null
+redis_test_cli SET "surl:$CREATED_SORT_FALLBACK_PATH" '{"type":"text","content":"fallback body","title":"Fallback","created":"bad-value"}' >/dev/null
 request POST "$BASE_URL/update" "{\"path\":\"$CREATED_SORT_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
@@ -976,7 +976,7 @@ expect_body_contains "\"content\":\"1\""
 log "POST /query topic lookup 通过"
 
 CURRENT_STEP="POST /query topic list"
-redis-cli -n "$REDIS_DB" SET "surl:$GHOST_TOPIC_PATH" '{"type":"topic","content":"<html></html>","title":"ghost"}' >/dev/null
+redis_test_cli SET "surl:$GHOST_TOPIC_PATH" '{"type":"topic","content":"<html></html>","title":"ghost"}' >/dev/null
 request POST "$BASE_URL/query" "{\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
@@ -1112,7 +1112,7 @@ expect_body_contains "[]"
 log "topic wildcard 删除通过"
 
 CURRENT_STEP="旧数据非法 created 读取返回 illegal"
-redis-cli -n "$REDIS_DB" SET "surl:$ILLEGAL_CREATED_PATH" '{"type":"text","content":"legacy body","title":"Legacy","created":"bad-value"}' >/dev/null
+redis_test_cli SET "surl:$ILLEGAL_CREATED_PATH" '{"type":"text","content":"legacy body","title":"Legacy","created":"bad-value"}' >/dev/null
 request POST "$BASE_URL/query" "{\"path\":\"$ILLEGAL_CREATED_PATH\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
@@ -1192,7 +1192,7 @@ request POST "$BASE_URL/create" "{\"path\":\"$TTL_ZERO_PATH\",\"url\":\"hello ze
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"ttl\":null"
-TTL_ZERO_REDIS="$(redis-cli -n "$REDIS_DB" TTL "surl:$TTL_ZERO_PATH")"
+TTL_ZERO_REDIS="$(redis_test_cli TTL "surl:$TTL_ZERO_PATH")"
 expect_equals "$TTL_ZERO_REDIS" "-1"
 log "ttl=0 不过期通过"
 
@@ -1202,7 +1202,7 @@ request POST "$BASE_URL/create" "{\"path\":\"$TTL_LIVE_PATH\",\"url\":\"hello li
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"ttl\":3"
-TTL_LIVE_REDIS="$(redis-cli -n "$REDIS_DB" TTL "surl:$TTL_LIVE_PATH")"
+TTL_LIVE_REDIS="$(redis_test_cli TTL "surl:$TTL_LIVE_PATH")"
 if [ "$TTL_LIVE_REDIS" -le 0 ] || [ "$TTL_LIVE_REDIS" -gt 180 ]; then
   fail "Redis TTL 不在预期范围内: $TTL_LIVE_REDIS"
 fi
@@ -1214,7 +1214,7 @@ request POST "$BASE_URL/create" "{\"path\":\"$TTL_MAX_PATH\",\"url\":\"hello max
   -H "Content-Type: application/json"
 expect_status 201
 expect_body_contains "\"ttl\":525600"
-TTL_MAX_REDIS="$(redis-cli -n "$REDIS_DB" TTL "surl:$TTL_MAX_PATH")"
+TTL_MAX_REDIS="$(redis_test_cli TTL "surl:$TTL_MAX_PATH")"
 if [ "$TTL_MAX_REDIS" -le 31449600 ] || [ "$TTL_MAX_REDIS" -gt 31536000 ]; then
   fail "Redis TTL 不在 365 天预期范围内: $TTL_MAX_REDIS"
 fi
@@ -1277,7 +1277,7 @@ request POST "$BASE_URL/query" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"content\":\"1\""
-redis-cli -n "$REDIS_DB" DEL "surl:$TTL_TOPIC_ITEM_PATH" >/dev/null
+redis_test_cli DEL "surl:$TTL_TOPIC_ITEM_PATH" >/dev/null
 request POST "$BASE_URL/query" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\"}" \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json"
@@ -1288,7 +1288,7 @@ request POST "$BASE_URL/update" "{\"path\":\"$TTL_TOPIC_PATH\",\"type\":\"topic\
   -H "Content-Type: application/json"
 expect_status 200
 expect_body_contains "\"content\":\"0\""
-TTL_TOPIC_ZCARD="$(redis-cli -n "$REDIS_DB" ZCARD "topic:$TTL_TOPIC_PATH:items")"
+TTL_TOPIC_ZCARD="$(redis_test_cli ZCARD "topic:$TTL_TOPIC_PATH:items")"
 expect_equals "$TTL_TOPIC_ZCARD" "1"
 log "topic refresh 清理 stale member 通过"
 

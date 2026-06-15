@@ -200,16 +200,45 @@ function wait_for_ready() {
   exit 1
 }
 
+REDIS_HOST="${REDIS_HOST:-localhost}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+
+function redis_test_url() {
+  echo "redis://$REDIS_HOST:$REDIS_PORT/$REDIS_DB"
+}
+
+function redis_test_cli() {
+  redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -n "$REDIS_DB" "$@"
+}
+
+function require_redis_available() {
+  if ! command -v redis-cli >/dev/null 2>&1; then
+    echo "Redis tests require redis-cli, but it was not found. Please install Redis CLI before running these tests."
+    exit 1
+  fi
+
+  if ! redis_test_cli PING >/dev/null 2>&1; then
+    echo "Redis tests require Redis at $REDIS_HOST:$REDIS_PORT (db $REDIS_DB), but it is not available."
+    echo "Please start Redis before running these tests."
+    exit 1
+  fi
+}
+
+function reset_test_redis() {
+  require_redis_available
+  redis_test_cli FLUSHDB >/dev/null
+}
+
 function start_local_server() {
   ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
   LOG_FILE="$(mktemp)"
   SERVER_PID=""
 
-  redis-cli -n "$REDIS_DB" FLUSHDB >/dev/null
+  reset_test_redis
 
   echo "[$MODE] 启动 npm start"
   local env_args=(
-    "LINKS_REDIS_URL=redis://localhost:6379/$REDIS_DB"
+    "LINKS_REDIS_URL=$(redis_test_url)"
     "SECRET_KEY=$SECRET_KEY"
     "ADMIN_KEY=${ADMIN_KEY:-$SECRET_KEY}"
     "FOOTER=${FOOTER:-}"

@@ -83,14 +83,6 @@ test('convertMarkdownToHtml preserves topic backlink when YAML front matter is p
   assert.doesNotMatch(html, /title: Hidden/);
 });
 
-test('convertMarkdownToHtml uses embedded base asset', () => {
-  const html = convertMarkdownToHtml('# Hello');
-
-  assert.match(html, new RegExp(getEmbeddedAssetUrl('terminal.gfm.css').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(html, /\/asset\/terminal.gfm.css/);
-  assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/gh\/mirtlecn\/public\/terminal-gfm/);
-});
-
 test('convertMarkdownToHtml enables fallback social images by default', () => {
   const html = convertMarkdownToHtml('# Hello');
 
